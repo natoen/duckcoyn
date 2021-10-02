@@ -5,62 +5,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/adshao/go-binance/v2"
+	"github.com/robfig/cron/v3"
 	"github.com/slack-go/slack"
 )
 
-/*
-	When the app starts:
-		1. Get all the USDT pairs from Binance and save it from the database.
-		2. Get all the pairs from the database and loop through all of them.
-		3. Check the latest 1 minute candle record of that particular pair in the database. If there is no record in the database, get the oldest record from Binance and save it to the database.
-		4. Get the next record
-*/
-
-func RunEveryMinute(bc *binance.Client, sc *slack.Client) {
-	channelID, timestamp, err := sc.PostMessage(
-		"C01UPH33NTB",
-		slack.MsgOptionText("Some text", false),
-	)
-
-	if err != nil {
-		fmt.Printf("%s\n", err)
-		fmt.Printf("%sSlack Channel ID:\n", channelID)
-	}
-
-	fmt.Printf("Message successfully sent to channel %s at %s\n", channelID, timestamp)
-
-	klines, err := bc.NewKlinesService().
-		Symbol("TLMUSDT").
-		Interval("1m").
-		Limit(15).
-		Do(context.Background())
-
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	for _, k := range klines {
-		fmt.Println(k.Volume, k.QuoteAssetVolume, k.TakerBuyBaseAssetVolume, k.Open, k.Close)
-	}
-	// 1624211221464486000
-	// 1624210500000
-	// 1624210518
-	fmt.Println(time.Now().Unix())
-	fmt.Println(time.Now().UnixNano())
-}
-
 func ReadUsdtSymbolsFile(filename string) []interface{} {
 	data, err := os.ReadFile(filename)
+
 	if err != nil {
 		panic(err)
 	}
 
 	var decodedData []interface{}
-
 	err = json.Unmarshal(data, &decodedData)
+
 	if err != nil {
 		panic(err)
 	}
@@ -68,74 +30,132 @@ func ReadUsdtSymbolsFile(filename string) []interface{} {
 	return decodedData
 }
 
-func WriteUsdtSymbolsFile(bc *binance.Client, filename string) {
-	// `prices` is an array of prices and symbols key-pair
-	prices, err := bc.NewListPricesService().Do(context.Background())
+func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
+	klines, err := bc.NewKlinesService().
+		Symbol(s).
+		Interval("1m").
+		Limit(61). // compare the current minute to the last 1 hour
+		EndTime(t).
+		Do(context.Background())
+
 	if err != nil {
-		panic(err)
+		fmt.Println("NewKlinesService error:", err)
+		return
 	}
 
-	var symbols []string
-	usdt := "USDT"
-	lenUsdt := len(usdt)
+	lenKlines := len(klines)
+	sumOfLastMin := float64(0)
+	highestVolOfLastMin := float64(0)
 
-	for _, p := range prices {
-		lenSymbol := len(p.Symbol)
+	for i := 0; i < lenKlines-1; i++ {
+		klineVol, err := strconv.ParseFloat(klines[i].Volume, 64)
 
-		// filtering only USDT symbols by checking if the last part is "USDT"
-		// "TLMUSDT" length is 7 and "USDT" is 4
-		// 7 - 4 = 3 so we slice "TLMUSDT" from 3 and we get "USDT"
-		if p.Symbol[lenSymbol-lenUsdt:] == usdt {
-			symbols = append(symbols, p.Symbol)
+		if err != nil {
+			fmt.Println("ParseFloat volume error:", err)
+			return
+		}
+
+		sumOfLastMin += klineVol
+
+		if highestVolOfLastMin < klineVol {
+			highestVolOfLastMin = klineVol
 		}
 	}
 
-	jsonData, err := json.Marshal(symbols)
+	meanVol1Min := sumOfLastMin / float64(60)
+	kLast := klines[lenKlines-1]
+	buyVol, err := strconv.ParseFloat(kLast.TakerBuyBaseAssetVolume, 64)
+
 	if err != nil {
-		panic(err)
+		fmt.Println("ParseFloat buyVol error:", err)
+		return
 	}
 
-	f, err := os.Create(filename)
+	cryptoVol, err := strconv.ParseFloat(kLast.Volume, 64)
+
 	if err != nil {
-		panic(err)
+		fmt.Println("ParseFloat cryptoVol error:", err)
+		return
 	}
 
-	b, err := f.WriteString(string(jsonData))
+	usdtVol, err := strconv.ParseFloat(kLast.QuoteAssetVolume, 64)
+
 	if err != nil {
-		panic(err)
+		fmt.Println("ParseFloat usdtVol error:", err)
+		return
 	}
 
-	fmt.Println(b, "bytes written successfully")
+	openPrice, err := strconv.ParseFloat(kLast.Open, 64)
 
-	err = f.Close()
 	if err != nil {
-		panic(err)
+		fmt.Println("ParseFloat openPrice error:", err)
+		return
 	}
-}
 
-func DateToMilliseconds(year, month, day, hour, minute, int) int {
+	closePrice, err := strconv.ParseFloat(kLast.Close, 64)
 
+	if err != nil {
+		fmt.Println("ParseFloat closePrice error:", err)
+		return
+	}
+
+	isMoreThan20kUsdt := usdtVol > 20000.0
+	volFromLastMin := (cryptoVol / meanVol1Min)
+	isCandleGreen := openPrice < closePrice
+	buyPercentage := buyVol / cryptoVol
+
+	if isMoreThan20kUsdt && isCandleGreen {
+		text := fmt.Sprintf("%s %.2f", s, buyPercentage*100)
+		chanID := ""
+
+		if cryptoVol/highestVolOfLastMin > 3 {
+			chanID = "C01V0V91NTS"
+		} else if volFromLastMin >= 10 {
+			chanID = "C01V0VD0KUG"
+		} else if volFromLastMin >= 5 {
+			chanID = "C01UPH33NTB"
+		} else {
+			return
+		}
+
+		channelID, timestamp, err := sc.PostMessage(
+			chanID,
+			slack.MsgOptionText(text, false),
+		)
+
+		if err != nil {
+			fmt.Println("Slack post message error", channelID, timestamp, err)
+		}
+	}
 }
 
 func main() {
-	// var (
-	// 	binanceApiKey       = "SjtKWLrEyswIwTvbGj4bpUAYLP4LjdZb02aMBcI0xOzMzbOsN17SVUbYH0b9rhMA"
-	// 	binanceSecretKey    = "13JtnIW1pYLlRm3fWAVY3p6CzCQiwVTgEPZpccQwokClvEVd9VlIbEaiclLTm5H9"
-	// 	slackToken          = "xoxb-1953607810134-2082368693729-5ORkYiqyztdZsQAvijlMquRE"
-	// 	usdtSymbolsFilename = "usdt_symbols.txt"
-	// )
+	var (
+		binanceApiKey       = "SjtKWLrEyswIwTvbGj4bpUAYLP4LjdZb02aMBcI0xOzMzbOsN17SVUbYH0b9rhMA"
+		binanceSecretKey    = "13JtnIW1pYLlRm3fWAVY3p6CzCQiwVTgEPZpccQwokClvEVd9VlIbEaiclLTm5H9"
+		slackToken          = "xoxb-1953607810134-2082368693729-5ORkYiqyztdZsQAvijlMquRE"
+		usdtSymbolsFilename = "usdt_symbols.txt"
+	)
 
-	// bc := binance.NewClient(binanceApiKey, binanceSecretKey)
-	// sc := slack.New(slackToken)
+	symbols := ReadUsdtSymbolsFile(usdtSymbolsFilename)
+	bc := binance.NewClient(binanceApiKey, binanceSecretKey)
+	sc := slack.New(slackToken)
+	c := cron.New()
 
-	// WriteUsdtSymbolsFile(bc, usdtSymbolsFilename)
+	c.AddFunc("@every 1m", func() {
+		t := time.Now().Add(time.Duration(-1) * time.Minute).UnixMilli()
 
-	// c := cron.New()
-	// c.AddFunc("@every 1m", func() {
-	// 	RunEveryMinute(bc, sc)
-	// })
-	// c.Start()
+		for _, symbol := range symbols {
+			s := fmt.Sprintf("%v", symbol)
 
-	// time.Sleep(8760 * time.Hour)
-	fmt.Println()
+			if s == "BTCUSDT" || s == "ETHUSDT" {
+				continue
+			} else {
+				SpikeAlert(bc, sc, t, s)
+			}
+		}
+	})
+	c.Start()
+
+	time.Sleep(24 * time.Hour)
 }
