@@ -183,6 +183,20 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 	}
 }
 
+func CheckForSpikes(symbols []interface{}, bc *binance.Client, sc *slack.Client) {
+	t := time.Now().Add(time.Duration(-1) * time.Minute).UnixMilli()
+
+	for _, symbol := range symbols {
+		s := fmt.Sprintf("%v", symbol)
+
+		if s == "BTCUSDT" || s == "ETHUSDT" {
+			continue
+		} else {
+			SpikeAlert(bc, sc, t, s)
+		}
+	}
+}
+
 func main() {
 	var (
 		binanceApiKey       = "SjtKWLrEyswIwTvbGj4bpUAYLP4LjdZb02aMBcI0xOzMzbOsN17SVUbYH0b9rhMA"
@@ -196,18 +210,11 @@ func main() {
 	sc := slack.New(slackToken)
 	c := cron.New()
 
+	// check right away when starting the program
+	CheckForSpikes(symbols, bc, sc)
+
 	c.AddFunc("@every 1m", func() {
-		t := time.Now().Add(time.Duration(-1) * time.Minute).UnixMilli()
-
-		for _, symbol := range symbols {
-			s := fmt.Sprintf("%v", symbol)
-
-			if s == "BTCUSDT" || s == "ETHUSDT" {
-				continue
-			} else {
-				SpikeAlert(bc, sc, t, s)
-			}
-		}
+		CheckForSpikes(symbols, bc, sc)
 	})
 	c.Start()
 
