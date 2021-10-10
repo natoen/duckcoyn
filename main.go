@@ -48,12 +48,20 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 	highestVolOfLastMin := float64(0)
 	isLast6CandlesGreen := true
 	last6MinOpen := float64(0)
+	isLastMinNo20k := true
 
 	for i := 0; i < lenKlines-1; i++ {
 		klineVol, err := strconv.ParseFloat(klines[i].Volume, 64)
 
 		if err != nil {
 			fmt.Println("ParseFloat volume error:", err)
+			return
+		}
+
+		klineUsdtVol, err := strconv.ParseFloat(klines[i].QuoteAssetVolume, 64)
+
+		if err != nil {
+			fmt.Println("ParseFloat klineUsdtVol error:", err)
 			return
 		}
 
@@ -72,17 +80,18 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 		}
 
 		sumOfLastMin += klineVol
+		isGreen := klineOpen <= klineClose
 
-		if highestVolOfLastMin < klineVol {
+		if isGreen && highestVolOfLastMin < klineVol {
 			highestVolOfLastMin = klineVol
 		}
 
-		if isLast6CandlesGreen == false {
+		if !isLast6CandlesGreen {
 			continue
 		}
 
 		if i >= 55 {
-			if klineOpen <= klineClose {
+			if isGreen {
 				if i == 55 {
 					last6MinOpen = klineOpen
 				}
@@ -90,9 +99,14 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 				isLast6CandlesGreen = false
 			}
 		}
+
+		isVolMoreThan20k := klineUsdtVol > 20000.0
+
+		if isLastMinNo20k && isVolMoreThan20k {
+			isLastMinNo20k = false
+		}
 	}
 
-	// meanVol1Min := sumOfLastMin / float64(60)
 	kLast := klines[lenKlines-1]
 	buyVol, err := strconv.ParseFloat(kLast.TakerBuyBaseAssetVolume, 64)
 
@@ -101,10 +115,10 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 		return
 	}
 
-	cryptoVol, err := strconv.ParseFloat(kLast.Volume, 64)
+	klineVol, err := strconv.ParseFloat(kLast.Volume, 64)
 
 	if err != nil {
-		fmt.Println("ParseFloat cryptoVol error:", err)
+		fmt.Println("ParseFloat klineVol error:", err)
 		return
 	}
 
@@ -132,13 +146,15 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 	tStr := time.UnixMilli(kLast.OpenTime).String()[11:16]
 	isMoreThan20kUsdt := usdtVol > 20000.0
 	isMoreThan500kUsdt := usdtVol >= 500000.0
-	// volFromLastMin := (cryptoVol / meanVol1Min)
 	isCandleGreen := openPrice < closePrice
-	buyPercentage := buyVol / cryptoVol
+	buyPercentage := buyVol / klineVol
 	isLast6MinAllGreenAndUpBy2Percent := isLast6CandlesGreen && (closePrice/last6MinOpen) >= 1.02
+	isCurrentChange2Percent := (closePrice / openPrice) >= 1.017
+	isCurrentVol3xOfLastMin := klineVol/highestVolOfLastMin >= 3
+	isCurrent30kAndNo20kFromLastMin := isLastMinNo20k && usdtVol >= 30000.0
 
 	if isMoreThan20kUsdt && isCandleGreen {
-		text := fmt.Sprintf("%s %.2f %s", s, buyPercentage*100, tStr)
+		text := fmt.Sprintf("%s %.2f %.2f %s", s, buyPercentage*100, usdtVol, tStr)
 
 		if isMoreThan500kUsdt {
 			text = fmt.Sprintf("%s %.2f *%.2f* %s", s, buyPercentage*100, usdtVol, tStr)
@@ -148,12 +164,10 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 
 		if isLast6MinAllGreenAndUpBy2Percent {
 			chanID = "C01UHA03VEY"
-		} else if (closePrice / openPrice) >= 1.017 {
+		} else if isCurrentChange2Percent {
 			chanID = "C01UPH33NTB"
-		} else if cryptoVol/highestVolOfLastMin > 3 {
+		} else if isCurrentVol3xOfLastMin || isCurrent30kAndNo20kFromLastMin {
 			chanID = "C01V0V91NTS"
-			// } else if volFromLastMin >= 10 {
-			// 	chanID = "C01V0VD0KUG"
 		} else {
 			return
 		}
