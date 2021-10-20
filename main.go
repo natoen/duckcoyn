@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"time"
@@ -44,11 +45,12 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 	}
 
 	lenKlines := len(klines)
-	sumOfLastMin := float64(0)
+	sumOfLastMinUsdtVol := float64(0)
 	highestVolOfLastMin := float64(0)
 	isLast6CandlesGreen := true
-	last6MinOpen := float64(0)
 	isLastMinNo20k := true
+	max := math.Inf(-1)
+	min := math.Inf(1)
 
 	for i := 0; i < lenKlines-1; i++ {
 		klineVol, err := strconv.ParseFloat(klines[i].Volume, 64)
@@ -79,31 +81,55 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 			return
 		}
 
-		sumOfLastMin += klineVol
+		if klineClose > max {
+			max = klineClose
+		}
+
+		if klineClose < min {
+			min = klineClose
+		}
+
+		sumOfLastMinUsdtVol += klineUsdtVol
 		isGreen := klineOpen <= klineClose
 
 		if isGreen && highestVolOfLastMin < klineVol {
 			highestVolOfLastMin = klineVol
 		}
 
-		if !isLast6CandlesGreen {
-			continue
-		}
-
-		if i >= 55 {
-			if isGreen {
-				if i == 55 {
-					last6MinOpen = klineOpen
-				}
-			} else {
-				isLast6CandlesGreen = false
-			}
-		}
-
 		isVolMoreThan20k := klineUsdtVol > 20000.0
 
 		if isLastMinNo20k && isVolMoreThan20k {
 			isLastMinNo20k = false
+		}
+	}
+
+	last6MinOpen := float64(0)
+	numOfGreen := 0
+
+	for i := lenKlines - 1; -1 < i; i-- {
+		klineOpen, err := strconv.ParseFloat(klines[i].Open, 64)
+
+		if err != nil {
+			fmt.Println("ParseFloat klineOpen error:", err)
+			return
+		}
+
+		klineClose, err := strconv.ParseFloat(klines[i].Close, 64)
+
+		if err != nil {
+			fmt.Println("ParseFloat klineClose error:", err)
+			return
+		}
+
+		if klineOpen <= klineClose { // isGreen
+			last6MinOpen = klineOpen
+			numOfGreen++
+
+			if !isLast6CandlesGreen && i == 55 {
+				isLast6CandlesGreen = true
+			}
+		} else {
+			break
 		}
 	}
 
@@ -148,32 +174,40 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 	isMoreThan500kUsdt := usdtVol >= 500000.0
 	isCandleGreen := openPrice < closePrice
 	buyPercentage := buyVol / klineVol
-	isLast6MinAllGreenAndUpBy2Percent := isLast6CandlesGreen && (closePrice/last6MinOpen) >= 1.02
+	isLast6MinAllGreenAndUpBy2Percent := isLast6CandlesGreen && (closePrice/last6MinOpen) >= 1.017
 	isCurrentChange2Percent := (closePrice / openPrice) >= 1.017
 	isCurrentVol3xOfLastMin := klineVol/highestVolOfLastMin >= 3
 	isCurrent30kAndNo20kFromLastMin := isLastMinNo20k && usdtVol >= 30000.0
+	sNoUSDT := s[0 : len(s)-4]
+	isYesNo := (sumOfLastMinUsdtVol/60 <= 2000.0 && (max/min) <= 1.015) || numOfGreen >= 10
 
 	if isMoreThan20kUsdt && isCandleGreen {
-		text := fmt.Sprintf("%s %.2f %.2f %s", s, buyPercentage*100, usdtVol, tStr)
-
-		if isMoreThan500kUsdt {
-			text = fmt.Sprintf("%s %.2f *%.2f* %s", s, buyPercentage*100, usdtVol, tStr)
-		}
-
-		chanID := ""
+		label := ""
 
 		if isLast6MinAllGreenAndUpBy2Percent {
-			chanID = "C01UHA03VEY"
+			label = "6分"
 		} else if isCurrentChange2Percent {
-			chanID = "C01UPH33NTB"
+			label = "2%"
 		} else if isCurrentVol3xOfLastMin || isCurrent30kAndNo20kFromLastMin {
-			chanID = "C01V0V91NTS"
+			label = "3X"
 		} else {
 			return
 		}
 
+		yesNo := "*YES*"
+
+		if !isYesNo {
+			yesNo = "NO"
+		}
+
+		text := fmt.Sprintf("%s %s %s %.2f %.2f %s", sNoUSDT, label, yesNo, buyPercentage*100, usdtVol, tStr)
+
+		if isMoreThan500kUsdt {
+			text = fmt.Sprintf("%s %s %s %.2f *%.2f* %s", sNoUSDT, label, yesNo, buyPercentage*100, usdtVol, tStr)
+		}
+
 		channelID, timestamp, err := sc.PostMessage(
-			chanID,
+			"C01UHA03VEY",
 			slack.MsgOptionText(text, false),
 		)
 
