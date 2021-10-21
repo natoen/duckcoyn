@@ -47,7 +47,7 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 	lenKlines := len(klines)
 	sumOfLastMinUsdtVol := float64(0)
 	highestVolOfLastMin := float64(0)
-	isLast6CandlesGreen := true
+	isLast6CandlesGreen := false
 	isLastMinNo20k := true
 	max := math.Inf(-1)
 	min := math.Inf(1)
@@ -181,7 +181,7 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 	sNoUSDT := s[0 : len(s)-4]
 	isYesNo := (sumOfLastMinUsdtVol/60 <= 2000.0 && (max/min) <= 1.015) || numOfGreen >= 10
 
-	if isMoreThan20kUsdt && isCandleGreen {
+	if (isMoreThan20kUsdt || isLast6MinAllGreenAndUpBy2Percent) && isCandleGreen {
 		label := ""
 
 		if isLast6MinAllGreenAndUpBy2Percent {
