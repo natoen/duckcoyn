@@ -179,7 +179,8 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 	isCurrentVol3xOfLastMin := klineVol/highestVolOfLastMin >= 3
 	isCurrent30kAndNo20kFromLastMin := isLastMinNo20k && usdtVol >= 30000.0
 	sNoUSDT := s[0 : len(s)-4]
-	isYesNo := (sumOfLastMinUsdtVol/60 <= 2000.0 && (max/min) <= 1.015) || numOfGreen >= 10
+	meanVolOfLastMin := sumOfLastMinUsdtVol / 60
+	isYesNo := (meanVolOfLastMin <= 2000.0 && (max/min) <= 1.015) || numOfGreen >= 10
 
 	if (isMoreThan20kUsdt || isLast6MinAllGreenAndUpBy2Percent) && isCandleGreen {
 		label := ""
@@ -206,8 +207,14 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 			text = fmt.Sprintf("%s %s %s %.2f *%.2f* %s", sNoUSDT, label, yesNo, buyPercentage*100, usdtVol, tStr)
 		}
 
+		chanID := "C01UHA03VEY"
+
+		if isYesNo && (meanVolOfLastMin/usdtVol) >= 10.0 {
+			chanID = "C01V0V91NTS"
+		}
+
 		channelID, timestamp, err := sc.PostMessage(
-			"C01UHA03VEY",
+			chanID,
 			slack.MsgOptionText(text, false),
 		)
 
