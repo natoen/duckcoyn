@@ -47,7 +47,6 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 	lenKlines := len(klines)
 	sumOfLastMinUsdtVol := float64(0)
 	highestVolOfLastMin := float64(0)
-	isLast6CandlesGreen := false
 	isLastMinNo20k := true
 	max := math.Inf(-1)
 	min := math.Inf(1)
@@ -124,10 +123,6 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 		if klineOpen <= klineClose { // isGreen
 			last6MinOpen = klineOpen
 			numOfGreen++
-
-			if !isLast6CandlesGreen && i == 55 {
-				isLast6CandlesGreen = true
-			}
 		} else {
 			break
 		}
@@ -174,13 +169,15 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 	isMoreThan500kUsdt := usdtVol >= 500000.0
 	isCandleGreen := openPrice < closePrice
 	buyPercentage := buyVol / klineVol
-	isLast6MinAllGreenAndUpBy2Percent := isLast6CandlesGreen && (closePrice/last6MinOpen) >= 1.017
+	isLast6MinAllGreenAndUpBy2Percent := numOfGreen >= 6 && (closePrice/last6MinOpen) >= 1.017 || numOfGreen >= 8 && (closePrice/last6MinOpen) >= 1.0085
 	isCurrentChange2Percent := (closePrice / openPrice) >= 1.017
 	isCurrentVol3xOfLastMin := klineVol/highestVolOfLastMin >= 3
 	isCurrent30kAndNo20kFromLastMin := isLastMinNo20k && usdtVol >= 30000.0
 	sNoUSDT := s[0 : len(s)-4]
-	meanVolOfLastMin := sumOfLastMinUsdtVol / 60
-	isYesNo := (meanVolOfLastMin <= 2000.0 && (max/min) <= 1.015) || numOfGreen >= 10
+	meanUsdtVolOfLastMin := sumOfLastMinUsdtVol / 60
+	isCurrentUsdtVol15xOfLastMin := (usdtVol / meanUsdtVolOfLastMin) >= 15.0
+	isFlat := (max/min <= 1.015)
+	isYesNo := (isFlat && (isCurrentUsdtVol15xOfLastMin || isLast6MinAllGreenAndUpBy2Percent)) || numOfGreen >= 8 || isCurrentChange2Percent
 
 	if (isMoreThan20kUsdt || isLast6MinAllGreenAndUpBy2Percent) && isCandleGreen {
 		label := ""
@@ -195,21 +192,15 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 			return
 		}
 
-		yesNo := "*YES*"
-
-		if !isYesNo {
-			yesNo = "NO"
-		}
-
-		text := fmt.Sprintf("%s %s %s %.2f %.2f %s", sNoUSDT, label, yesNo, buyPercentage*100, usdtVol, tStr)
+		text := fmt.Sprintf("%s %s %.2f %.2f %s", sNoUSDT, label, buyPercentage*100, usdtVol, tStr)
 
 		if isMoreThan500kUsdt {
-			text = fmt.Sprintf("%s %s %s %.2f *%.2f* %s", sNoUSDT, label, yesNo, buyPercentage*100, usdtVol, tStr)
+			text = fmt.Sprintf("%s %s %.2f *%.2f* %s", sNoUSDT, label, buyPercentage*100, usdtVol, tStr)
 		}
 
 		chanID := "C01UHA03VEY"
 
-		if isYesNo && (meanVolOfLastMin/usdtVol) >= 10.0 {
+		if isYesNo {
 			chanID = "C01V0V91NTS"
 		}
 
