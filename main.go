@@ -166,13 +166,12 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 	isCandleGreen := openPrice < closePrice
 	isMoreThan20kUsdt := usdtVol > 20000.0
 	isLast6MinAllGreenAndIsPriceChange1Percent := numOfGreen >= 6 && (closePrice/last6MinOpen) >= 1.01
-	isCurrentUsdtVol25xOfHighestFromLastMin := highestVolOfLastMin >= 25.0
+	isCurrentUsdtVol25xOfHighestFromLastMin := klineVol/highestVolOfLastMin >= 25.0
 	isPriceChange2Percent := (closePrice / openPrice) >= 1.017
-	isMoreThan400kUsdt := usdtVol >= 400000.0
 
 	if isCandleGreen &&
 		(isMoreThan20kUsdt || isLast6MinAllGreenAndIsPriceChange1Percent) &&
-		(isCurrentUsdtVol25xOfHighestFromLastMin || isPriceChange2Percent || isMoreThan400kUsdt) {
+		(isCurrentUsdtVol25xOfHighestFromLastMin || isPriceChange2Percent) {
 		label := ""
 
 		if isLast6MinAllGreenAndIsPriceChange1Percent {
@@ -184,9 +183,10 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 		}
 
 		strFormat := "%s %s %.2f %.2f %.2f %s"
+		isMoreThan400kUsdt := usdtVol >= 400000.0
 
 		if isMoreThan400kUsdt {
-			strFormat = "%s %s %.2f *%.2f* %.2f %s"
+			strFormat = "%s %s *%.2f* %.2f %.2f %s"
 		}
 
 		sNoUSDT := s[0 : len(s)-4]
@@ -194,7 +194,7 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 		meanUsdtVolOfLastMin := sumOfLastMinUsdtVol / 60
 		currentUsdtVolByLastMin := (usdtVol / meanUsdtVolOfLastMin)
 		timeStr := time.UnixMilli(kLast.OpenTime).String()[11:16]
-		text := fmt.Sprintf(strFormat, sNoUSDT, label, buyPercentage*100, usdtVol, currentUsdtVolByLastMin, timeStr)
+		text := fmt.Sprintf(strFormat, sNoUSDT, label, usdtVol, buyPercentage*100, currentUsdtVolByLastMin, timeStr)
 
 		channelID, timestamp, err := sc.PostMessage(
 			"C01V0V91NTS",
