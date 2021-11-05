@@ -137,7 +137,6 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 	}
 
 	klineVol, err := strconv.ParseFloat(kLast.Volume, 64)
-
 	if err != nil {
 		fmt.Println("ParseFloat klineVol error:", err)
 		return
@@ -164,49 +163,41 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 		return
 	}
 
-	isMoreThan20kUsdt := usdtVol > 20000.0
-	isMoreThan400kUsdt := usdtVol >= 400000.0
 	isCandleGreen := openPrice < closePrice
-	buyPercentage := buyVol / klineVol
-	isLast6MinAllGreen := numOfGreen >= 6 && (closePrice/last6MinOpen) >= 1.01
-	isCurrentChange2Percent := (closePrice / openPrice) >= 1.017
-	isCurrentVol3xOfLastMin := klineVol/highestVolOfLastMin >= 3
-	isCurrent30kAndNo20kFromLastMin := isLastMinNo20k && usdtVol >= 30000.0
-	sNoUSDT := s[0 : len(s)-4]
-	meanUsdtVolOfLastMin := sumOfLastMinUsdtVol / 60
-	currentUsdtVolByLastMin := (usdtVol / meanUsdtVolOfLastMin)
-	isCurrentUsdtVol25xOfLastMin := currentUsdtVolByLastMin >= 25.0
-	isFlat := (max/min <= 1.015)
-	isYesNo := (isFlat && isCurrentUsdtVol25xOfLastMin) || isLast6MinAllGreen || isCurrentChange2Percent || isMoreThan400kUsdt
-	timeStr := time.UnixMilli(kLast.OpenTime).String()[11:16]
+	isMoreThan20kUsdt := usdtVol > 20000.0
+	isLast6MinAllGreenAndIsPriceChange1Percent := numOfGreen >= 6 && (closePrice/last6MinOpen) >= 1.01
+	isCurrentUsdtVol25xOfHighestFromLastMin := highestVolOfLastMin >= 25.0
+	isPriceChange2Percent := (closePrice / openPrice) >= 1.017
+	isMoreThan400kUsdt := usdtVol >= 400000.0
 
-	if (isMoreThan20kUsdt || isLast6MinAllGreen) && isCandleGreen {
+	if isCandleGreen &&
+		(isMoreThan20kUsdt || isLast6MinAllGreenAndIsPriceChange1Percent) &&
+		(isCurrentUsdtVol25xOfHighestFromLastMin || isPriceChange2Percent || isMoreThan400kUsdt) {
 		label := ""
 
-		if isLast6MinAllGreen {
+		if isLast6MinAllGreenAndIsPriceChange1Percent {
 			label = fmt.Sprintf("%d分", numOfGreen)
-		} else if isCurrentChange2Percent {
+		} else if isPriceChange2Percent {
 			label = "2%"
-		} else if isCurrentVol3xOfLastMin || isCurrent30kAndNo20kFromLastMin {
-			label = "3X"
 		} else {
-			return
+			label = "3X"
 		}
 
-		text := fmt.Sprintf("%s %s %.2f %.2f %.2f %s", sNoUSDT, label, buyPercentage*100, usdtVol, currentUsdtVolByLastMin, timeStr)
+		strFormat := "%s %s %.2f %.2f %.2f %s"
 
 		if isMoreThan400kUsdt {
-			text = fmt.Sprintf("%s %s %.2f *%.2f* %.2f %s", sNoUSDT, label, buyPercentage*100, usdtVol, currentUsdtVolByLastMin, timeStr)
+			strFormat = "%s %s %.2f *%.2f* %.2f %s"
 		}
 
-		chanID := "C01UHA03VEY"
-
-		if isYesNo {
-			chanID = "C01V0V91NTS"
-		}
+		sNoUSDT := s[0 : len(s)-4]
+		buyPercentage := buyVol / klineVol
+		meanUsdtVolOfLastMin := sumOfLastMinUsdtVol / 60
+		currentUsdtVolByLastMin := (usdtVol / meanUsdtVolOfLastMin)
+		timeStr := time.UnixMilli(kLast.OpenTime).String()[11:16]
+		text := fmt.Sprintf(strFormat, sNoUSDT, label, buyPercentage*100, usdtVol, currentUsdtVolByLastMin, timeStr)
 
 		channelID, timestamp, err := sc.PostMessage(
-			chanID,
+			"C01V0V91NTS",
 			slack.MsgOptionText(text, false),
 		)
 
