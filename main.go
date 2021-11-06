@@ -166,7 +166,7 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 	isCandleGreen := openPrice < closePrice
 	isMoreThan20kUsdt := usdtVol > 20000.0
 	isLast6MinAllGreenAndIsPriceChange1Percent := numOfGreen >= 6 && (closePrice/last6MinOpen) >= 1.01
-	isCurrentUsdtVol25xOfHighestFromLastMin := klineVol/highestVolOfLastMin >= 25.0
+	isCurrentUsdtVol25xOfHighestFromLastMin := klineVol/highestVolOfLastMin >= 3.0 && usdtVol >= 100000.0
 	isPriceChange2Percent := (closePrice / openPrice) >= 1.017
 
 	if isCandleGreen &&
@@ -207,8 +207,9 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 	}
 }
 
+// run it at the 55th second so you'll get the Kline of that minute
 func CheckForSpikes(symbols []interface{}, bc *binance.Client, sc *slack.Client) {
-	t := time.Now().Add(time.Duration(-1) * time.Minute).UnixMilli()
+	t := time.Now().UnixMilli()
 
 	for _, symbol := range symbols {
 		s := fmt.Sprintf("%v", symbol)
@@ -233,9 +234,6 @@ func main() {
 	bc := binance.NewClient(binanceApiKey, binanceSecretKey)
 	sc := slack.New(slackToken)
 	c := cron.New()
-
-	// check right away when starting the program
-	CheckForSpikes(symbols, bc, sc)
 
 	c.AddFunc("@every 1m", func() {
 		CheckForSpikes(symbols, bc, sc)
