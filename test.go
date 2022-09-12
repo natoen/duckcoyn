@@ -2,36 +2,30 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
-	"os"
 	"strconv"
 	"time"
 
 	"github.com/adshao/go-binance/v2"
-	"github.com/robfig/cron/v3"
-	"github.com/slack-go/slack"
 )
 
-func ReadUsdtSymbolsFile(filename string) []interface{} {
-	data, err := os.ReadFile(filename)
+func main() {
+	var (
+		binanceApiKey    = "SjtKWLrEyswIwTvbGj4bpUAYLP4LjdZb02aMBcI0xOzMzbOsN17SVUbYH0b9rhMA"
+		binanceSecretKey = "13JtnIW1pYLlRm3fWAVY3p6CzCQiwVTgEPZpccQwokClvEVd9VlIbEaiclLTm5H9"
+	)
+
+	bc := binance.NewClient(binanceApiKey, binanceSecretKey)
+	loc, err := time.LoadLocation("Asia/Tokyo")
 
 	if err != nil {
-		panic(err)
+		fmt.Println("LoadLocation error:", err)
+		return
 	}
 
-	var decodedData []interface{}
-	err = json.Unmarshal(data, &decodedData)
-
-	if err != nil {
-		panic(err)
-	}
-
-	return decodedData
-}
-
-func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
+	s := "DOCKUSDT"
+	t := time.Date(2021, 11, 7, 20, 00, 0, 0, loc).Add(time.Duration(-1) * time.Minute).UnixMilli()
 	klines, err := bc.NewKlinesService().
 		Symbol(s).
 		Interval("1m").
@@ -164,13 +158,12 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 	}
 
 	isCandleGreen := openPrice <= closePrice
-	isMoreThan10kUsdt := usdtVol >= 10000.0
 	isMoreThan20kUsdt := usdtVol >= 20000.0
-	isLast6MinAllGreenAndIsPriceChange1Percent := numOfGreen >= 6 && (closePrice/last6MinOpen) >= 1.015 && isMoreThan10kUsdt
+	isLast6MinAllGreenAndIsPriceChange1Percent := numOfGreen >= 6 && (closePrice/last6MinOpen) >= 1.015
 	isCurrentUsdtVol25xOfHighestFromLastMin := klineVol/highestVolOfLastMin >= 3.0 && usdtVol >= 100000.0
 	isPriceChange2Percent := (closePrice / openPrice) >= 1.017
 	isMoreThan20kUsdtWithConditions := isMoreThan20kUsdt && (isCurrentUsdtVol25xOfHighestFromLastMin || isPriceChange2Percent)
-
+	fmt.Println(isCandleGreen, usdtVol, isPriceChange2Percent)
 	if isCandleGreen && (isLast6MinAllGreenAndIsPriceChange1Percent || isMoreThan20kUsdtWithConditions) {
 		label := ""
 
@@ -192,47 +185,10 @@ func SpikeAlert(bc *binance.Client, sc *slack.Client, t int64, s string) {
 		sNoUSDT := s[0 : len(s)-4]
 		buyPercentage := buyVol / klineVol
 		meanUsdtVolOfLastMin := sumOfLastMinUsdtVol / 60
-		usdtVolByLastMin := (usdtVol / meanUsdtVolOfLastMin)
+		currentUsdtVolByLastMin := (usdtVol / meanUsdtVolOfLastMin)
 		timeStr := time.UnixMilli(kLast.OpenTime).String()[11:16]
-		text := fmt.Sprintf(strFormat, sNoUSDT, label, usdtVol, buyPercentage*100, usdtVolByLastMin, timeStr)
+		text := fmt.Sprintf(strFormat, sNoUSDT, label, usdtVol, buyPercentage*100, currentUsdtVolByLastMin, timeStr)
 
-		channelID, timestamp, err := sc.PostMessage(
-			"C01V0V91NTS",
-			slack.MsgOptionText(text, false),
-		)
-
-		if err != nil {
-			fmt.Println("Slack post message error", channelID, timestamp, err)
-		}
+		fmt.Println(text)
 	}
-}
-
-// running at the 0th second so you'll get the full Kline of the last minute
-func CheckForSpikes(symbols []interface{}, bc *binance.Client, sc *slack.Client) {
-	t := time.Now().Add(time.Duration(-1) * time.Minute).UnixMilli()
-	for _, symbol := range symbols {
-		s := fmt.Sprintf("%v", symbol)
-		SpikeAlert(bc, sc, t, s)
-	}
-}
-
-func main() {
-	var (
-		binanceApiKey       = "SjtKWLrEyswIwTvbGj4bpUAYLP4LjdZb02aMBcI0xOzMzbOsN17SVUbYH0b9rhMA"
-		binanceSecretKey    = "13JtnIW1pYLlRm3fWAVY3p6CzCQiwVTgEPZpccQwokClvEVd9VlIbEaiclLTm5H9"
-		slackToken          = "xoxb-1953607810134-2082368693729-5ORkYiqyztdZsQAvijlMquRE"
-		usdtSymbolsFilename = "usdt_symbols.txt"
-	)
-
-	symbols := ReadUsdtSymbolsFile(usdtSymbolsFilename)
-	bc := binance.NewClient(binanceApiKey, binanceSecretKey)
-	sc := slack.New(slackToken)
-	c := cron.New()
-
-	c.AddFunc("* * * * *", func() {
-		CheckForSpikes(symbols, bc, sc)
-	})
-	c.Start()
-
-	time.Sleep(24 * 365 * 100 * time.Hour)
 }

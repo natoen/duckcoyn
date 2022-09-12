@@ -26,7 +26,7 @@ func WriteUsdtSymbolsFile(bc *binance.Client, filename string) {
 		// filtering only USDT symbols by checking if the last part is "USDT"
 		// "TLMUSDT" length is 7 and "USDT" is 4
 		// 7 - 4 = 3 so we slice "TLMUSDT" from 3 and we get "USDT"
-		if p.Symbol[lenSymbol-lenUsdt:] == usdtStr && p.Symbol[lenSymbol-lenUsdt-2:] != "UPUSDT" && p.Symbol[lenSymbol-lenUsdt-2:] != "WNUSDT" && p.Symbol != "BCHSVUSDT" && p.Symbol != "TUSDUSDT" && p.Symbol != "BUSDUSDT" {
+		if p.Symbol[lenSymbol-lenUsdt:] == usdtStr && !((lenSymbol > 8) && p.Symbol[lenSymbol-lenUsdt-4:] == "DOWNUSDT" || (lenSymbol > 5) && p.Symbol[lenSymbol-lenUsdt-2:] == "UPUSDT") && p.Symbol != "BCHSVUSDT" && p.Symbol != "TUSDUSDT" && p.Symbol != "BUSDUSDT" && p.Symbol != "ETHUSDT" && p.Symbol != "BTCUSDT" && p.Symbol != "NBTUSDT" && p.Symbol != "USDCUSDT" && p.Symbol != "EUROUSDT" && p.Symbol != "USTUSDT" && p.Symbol != "AUDUSDT" && p.Symbol != "TUSDUSDT" && p.Symbol != "USDPUSDT" && p.Symbol != "EURUSDT" {
 			symbols = append(symbols, p.Symbol)
 		}
 	}
