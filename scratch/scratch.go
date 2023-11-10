@@ -1,11 +1,8 @@
 package main
 
 import (
-	"time"
-
 	"github.com/adshao/go-binance/v2"
 	"github.com/natoen/duckcoyn/helpers"
-	"github.com/robfig/cron/v3"
 	"github.com/slack-go/slack"
 )
 
@@ -20,14 +17,6 @@ func main() {
 	symbols := helpers.ReadUsdtSymbolsFile(usdtSymbolsFilename)
 	bc := binance.NewClient(binanceApiKey, binanceSecretKey)
 	sc := slack.New(slackToken)
-	c := cron.New()
 
-	// adds the function(s) to be run every minute
-	c.AddFunc("* * * * *", func() {
-		helpers.CheckForSpikingCoins(symbols, bc, sc)
-	})
-	c.Start()
-
-	// make the program sleep for 1 year (8760 hours)
-	time.Sleep(24 * 365 * time.Hour)
+	helpers.CheckForSpikingCoins(symbols, bc, sc)
 }
