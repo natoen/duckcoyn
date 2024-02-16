@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/adshao/go-binance/v2"
@@ -11,20 +12,31 @@ import (
 
 func main() {
 	var (
-		binanceApiKey       = "SjtKWLrEyswIwTvbGj4bpUAYLP4LjdZb02aMBcI0xOzMzbOsN17SVUbYH0b9rhMA"
-		binanceSecretKey    = "13JtnIW1pYLlRm3fWAVY3p6CzCQiwVTgEPZpccQwokClvEVd9VlIbEaiclLTm5H9"
-		slackToken          = "xoxb-1953607810134-2082368693729-5ORkYiqyztdZsQAvijlMquRE"
-		usdtSymbolsFilename = "usdt_symbols.txt"
+		binanceApiKey    = "SjtKWLrEyswIwTvbGj4bpUAYLP4LjdZb02aMBcI0xOzMzbOsN17SVUbYH0b9rhMA"
+		binanceSecretKey = "13JtnIW1pYLlRm3fWAVY3p6CzCQiwVTgEPZpccQwokClvEVd9VlIbEaiclLTm5H9"
+		slackToken       = "xoxb-1953607810134-2082368693729-5ORkYiqyztdZsQAvijlMquRE"
 	)
 
-	symbols := helpers.ReadUsdtSymbolsFile(usdtSymbolsFilename)
 	bc := binance.NewClient(binanceApiKey, binanceSecretKey)
 	sc := slack.New(slackToken)
 	c := cron.New()
+	pairs := helpers.GetUsdtPairs(bc)
+	yesterdayUsdtPairs := helpers.GetYesterdayUsdtPairs(bc, pairs)
 
-	// adds the function(s) to be run every minute
+	fmt.Println(yesterdayUsdtPairs, "yesterday USDT pairs")
+
+	// run every minute
 	c.AddFunc("* * * * *", func() {
-		helpers.CheckForSpikingCoins(symbols, bc, sc)
+		t := time.Now().Add(-1 * time.Minute)
+
+		if t.Hour() == 0 && t.Minute() == 0 {
+			pairs = helpers.GetUsdtPairs(bc)
+			yesterdayUsdtPairs = helpers.GetYesterdayUsdtPairs(bc, pairs)
+
+			fmt.Println(yesterdayUsdtPairs, "yesterday USDT pairs")
+		}
+
+		helpers.CheckForSpikingCoins(pairs, yesterdayUsdtPairs, bc, sc, t)
 	})
 	c.Start()
 
