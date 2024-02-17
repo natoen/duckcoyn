@@ -50,8 +50,8 @@ func CheckForSpikingCoins(pairs []string, yesterdayUsdtPairs map[string]float64,
 			isUsdtVol4PercentOfYesterday := (klineUsdtVol / yesterdayUsdtPairs[pair]) > 0.04
 			isMoreThan20kUsdt := klineUsdtVol >= 20000.0
 
-			if (isUsdtVol4PercentOfYesterday && isGreen && isMoreThan20kUsdt) || is1PercentUp {
-				text := fmt.Sprintf("%s %.2f %s", pair, klineUsdtVol, t.String()[11:16])
+			if isGreen && isMoreThan20kUsdt && (isUsdtVol4PercentOfYesterday || is1PercentUp) {
+				text := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %.2f %s", pair[0:len(pair)-4], pair, klineUsdtVol, t.String()[11:16])
 
 				channelID, timestamp, err := sc.PostMessage(
 					"C01V0V91NTS",
