@@ -15,6 +15,9 @@ import (
 var wg sync.WaitGroup
 
 func CheckForSpikingCoins(pairs []string, yesterdayUsdtPairs map[string]float64, bc *binance.Client, sc *slack.Client, t time.Time, sp *sync.Map) {
+	numOfKlines := 180
+	indexOfLastKline := numOfKlines - 1
+
 	for _, pair := range pairs {
 		_, isSkipPair := sp.Load(pair)
 
@@ -25,33 +28,48 @@ func CheckForSpikingCoins(pairs []string, yesterdayUsdtPairs map[string]float64,
 		wg.Add(1)
 
 		go func(pair string) {
-			kline := GetKlines(bc, pair, "1m", 1, t.UnixMilli())[0]
+			klines := GetKlines(bc, pair, "1m", numOfKlines, t.UnixMilli())
+			latestKline := klines[indexOfLastKline]
 
-			klineUsdtVol, err := strconv.ParseFloat(kline.QuoteAssetVolume, 64)
+			latestKlineClose, err := strconv.ParseFloat(latestKline.Close, 64)
 			if err != nil {
-				fmt.Println("ParseFloat klineUsdtVol error:", err)
+				fmt.Println("ParseFloat latestKlineClose error:", latestKline, err)
 				return
 			}
 
-			klineOpen, err := strconv.ParseFloat(kline.Open, 64)
+			for i := 0; i < indexOfLastKline; i++ {
+				currentKlineOpen, err := strconv.ParseFloat(klines[i].Open, 64)
+				if err != nil {
+					fmt.Println("ParseFloat currentKlineOpen error:", klines[i], err)
+					return
+				}
+
+				if currentKlineOpen > latestKlineClose {
+					defer wg.Done()
+					return
+				}
+			}
+
+			latestKlineUsdtVol, err := strconv.ParseFloat(latestKline.QuoteAssetVolume, 64)
 			if err != nil {
-				fmt.Println("ParseFloat klineOpen error:", err)
+				fmt.Println("ParseFloat latestKlineUsdtVol error:", latestKline, err)
 				return
 			}
 
-			klineClose, err := strconv.ParseFloat(kline.Close, 64)
+			latestKlineOpen, err := strconv.ParseFloat(latestKline.Open, 64)
 			if err != nil {
-				fmt.Println("ParseFloat klineClose error:", err)
+				fmt.Println("ParseFloat latestKlineOpen error:", latestKline, err)
 				return
 			}
 
-			isGreen := klineOpen <= klineClose
-			is1PercentUp := (klineClose / klineOpen) >= 1.007 // not really 1% but 0.7%
-			isUsdtVol4PercentOfYesterday := (klineUsdtVol / yesterdayUsdtPairs[pair]) > 0.04
-			isMoreThan20kUsdt := klineUsdtVol >= 20000.0
+			isGreen := latestKlineOpen <= latestKlineClose
+			is1PercentUp := (latestKlineClose / latestKlineOpen) >= 1.007 // not really 1% but 0.7%
+			yesterdayUsdtVol := latestKlineUsdtVol / yesterdayUsdtPairs[pair]
+			isUsdtVol4PercentOfYesterday := (yesterdayUsdtVol) > 0.04
+			isMoreThan20kUsdt := latestKlineUsdtVol >= 20000.0
 
 			if isGreen && isMoreThan20kUsdt && (isUsdtVol4PercentOfYesterday || is1PercentUp) {
-				text := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %.2f %s", pair[0:len(pair)-4], pair, klineUsdtVol, t.String()[11:16])
+				text := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %.0f%% %.0f %s", pair[0:len(pair)-4], pair, yesterdayUsdtVol*100, latestKlineUsdtVol, t.String()[11:16])
 
 				channelID, timestamp, err := sc.PostMessage(
 					"C01V0V91NTS",
@@ -62,7 +80,7 @@ func CheckForSpikingCoins(pairs []string, yesterdayUsdtPairs map[string]float64,
 					fmt.Println("PostMessage", channelID, timestamp, err)
 				}
 
-				sp.Store(pair, klineUsdtVol)
+				sp.Store(pair, latestKlineUsdtVol)
 			}
 
 			defer wg.Done()
