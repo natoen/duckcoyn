@@ -14,45 +14,61 @@ import (
 
 var wg sync.WaitGroup
 
-func CheckForSpikingCoins(pairs []string, yesterdayUsdtPairs map[string]float64, bc *binance.Client, sc *slack.Client, t time.Time) {
+func CheckForSpikingCoins(pairs []string, yesterdayUsdtPairs map[string]float64, bc *binance.Client, sc *slack.Client, t time.Time, sp *sync.Map) {
 	for _, pair := range pairs {
-		kline := GetKlines(bc, pair, "1m", 1, t.UnixMilli())[0]
+		_, isSkipPair := sp.Load(pair)
 
-		klineUsdtVol, err := strconv.ParseFloat(kline.QuoteAssetVolume, 64)
-		if err != nil {
-			fmt.Println("ParseFloat klineUsdtVol error:", err)
-			return
+		if isSkipPair {
+			continue
 		}
 
-		klineOpen, err := strconv.ParseFloat(kline.Open, 64)
-		if err != nil {
-			fmt.Println("ParseFloat klineOpen error:", err)
-			return
-		}
+		wg.Add(1)
 
-		klineClose, err := strconv.ParseFloat(kline.Close, 64)
-		if err != nil {
-			fmt.Println("ParseFloat klineClose error:", err)
-			return
-		}
+		go func(pair string) {
+			kline := GetKlines(bc, pair, "1m", 1, t.UnixMilli())[0]
 
-		isGreen := klineOpen <= klineClose
-		isUsdtVol4PercentOfYesterday := (klineUsdtVol / yesterdayUsdtPairs[pair]) > 0.04
-		isMoreThan20kUsdt := klineUsdtVol >= 20000.0
-
-		if isUsdtVol4PercentOfYesterday && isGreen && isMoreThan20kUsdt {
-			text := fmt.Sprintf("%s %.2f %s", pair, klineUsdtVol, t.String()[11:16])
-			fmt.Println(text, "SPIKING")
-
-			channelID, timestamp, err := sc.PostMessage(
-				"C01V0V91NTS",
-				slack.MsgOptionText(text, false),
-			)
-
+			klineUsdtVol, err := strconv.ParseFloat(kline.QuoteAssetVolume, 64)
 			if err != nil {
-				fmt.Println("PostMessage", channelID, timestamp, err)
+				fmt.Println("ParseFloat klineUsdtVol error:", err)
+				return
 			}
-		}
+
+			klineOpen, err := strconv.ParseFloat(kline.Open, 64)
+			if err != nil {
+				fmt.Println("ParseFloat klineOpen error:", err)
+				return
+			}
+
+			klineClose, err := strconv.ParseFloat(kline.Close, 64)
+			if err != nil {
+				fmt.Println("ParseFloat klineClose error:", err)
+				return
+			}
+
+			isGreen := klineOpen <= klineClose
+			is1PercentUp := (klineClose / klineOpen) >= 1.007 // not really 1% but 0.7%
+			isUsdtVol4PercentOfYesterday := (klineUsdtVol / yesterdayUsdtPairs[pair]) > 0.04
+			isMoreThan20kUsdt := klineUsdtVol >= 20000.0
+
+			if (isUsdtVol4PercentOfYesterday && isGreen && isMoreThan20kUsdt) || is1PercentUp {
+				text := fmt.Sprintf("%s %.2f %s", pair, klineUsdtVol, t.String()[11:16])
+
+				channelID, timestamp, err := sc.PostMessage(
+					"C01V0V91NTS",
+					slack.MsgOptionText(text, false),
+				)
+
+				if err != nil {
+					fmt.Println("PostMessage", channelID, timestamp, err)
+				}
+
+				sp.Store(pair, klineUsdtVol)
+			}
+
+			defer wg.Done()
+		}(pair)
+
+		wg.Wait()
 	}
 }
 
@@ -91,6 +107,10 @@ func GetUsdtPairs(bc *binance.Client) []string {
 		"AUDUSDT":   true,
 		"USDPUSDT":  true,
 		"EURUSDT":   true,
+		"TVKUSDT":   true,
+		"ERDUSDT":   true,
+		"LENDUSDT":  true,
+		"WBTCUSDT":  true,
 	}
 
 	var symbols []string

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/adshao/go-binance/v2"
@@ -22,6 +23,7 @@ func main() {
 	c := cron.New()
 	pairs := helpers.GetUsdtPairs(bc)
 	yesterdayUsdtPairs := helpers.GetYesterdayUsdtPairs(bc, pairs)
+	skipPairsMap := sync.Map{}
 
 	fmt.Println(yesterdayUsdtPairs, "yesterday USDT pairs")
 
@@ -29,14 +31,18 @@ func main() {
 	c.AddFunc("* * * * *", func() {
 		t := time.Now().Add(-1 * time.Minute)
 
-		if t.Hour() == 0 && t.Minute() == 0 {
+		if t.Minute() == 0 {
+			skipPairsMap = sync.Map{}
+		}
+
+		if t.Hour() == 9 && t.Minute() == 0 {
 			pairs = helpers.GetUsdtPairs(bc)
 			yesterdayUsdtPairs = helpers.GetYesterdayUsdtPairs(bc, pairs)
 
 			fmt.Println(yesterdayUsdtPairs, "yesterday USDT pairs")
 		}
 
-		helpers.CheckForSpikingCoins(pairs, yesterdayUsdtPairs, bc, sc, t)
+		helpers.CheckForSpikingCoins(pairs, yesterdayUsdtPairs, bc, sc, t, &skipPairsMap)
 	})
 	c.Start()
 
