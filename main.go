@@ -42,7 +42,7 @@ func main() {
 			fmt.Println(yesterdayUsdtPairs, "yesterday USDT pairs")
 		}
 
-		helpers.CheckForSpikingCoins(pairs, yesterdayUsdtPairs, bc, sc, t, &skipPairsMap)
+		helpers.CheckForSpikingCoins(yesterdayUsdtPairs, bc, sc, t, &skipPairsMap)
 	})
 	c.Start()
 

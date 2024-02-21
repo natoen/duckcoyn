@@ -14,11 +14,11 @@ import (
 
 var wg sync.WaitGroup
 
-func CheckForSpikingCoins(pairs []string, yesterdayUsdtPairs map[string]float64, bc *binance.Client, sc *slack.Client, t time.Time, sp *sync.Map) {
+func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Client, sc *slack.Client, t time.Time, sp *sync.Map) {
 	numOfKlines := 180
 	indexOfLastKline := numOfKlines - 1
 
-	for _, pair := range pairs {
+	for pair := range yesterdayUsdtPairs {
 		_, isSkipPair := sp.Load(pair)
 
 		if isSkipPair {
@@ -129,6 +129,7 @@ func GetUsdtPairs(bc *binance.Client) []string {
 		"ERDUSDT":   true,
 		"LENDUSDT":  true,
 		"WBTCUSDT":  true,
+		"BCCUSDT":   true,
 	}
 
 	var symbols []string
@@ -149,26 +150,32 @@ func GetUsdtPairs(bc *binance.Client) []string {
 	return symbols
 }
 
-func GetYesterdayUsdtPairs(bc *binance.Client, pairSymbols []string) map[string]float64 {
+func GetYesterdayUsdtPairs(bc *binance.Client, pairs []string) map[string]float64 {
 	yesterday := time.Now().Add(-24 * time.Hour).UnixMilli()
 	m := &sync.Map{}
 
-	for _, symbol := range pairSymbols {
-		s := fmt.Sprintf("%v", symbol)
+	for _, pair := range pairs {
+		p := fmt.Sprintf("%v", pair)
 		wg.Add(1)
 
-		go func() {
-			kline := GetKlines(bc, s, "1d", 1, yesterday)[0]
-			usdtVol, err := strconv.ParseFloat(kline.QuoteAssetVolume, 64)
+		go func(pair string) {
+			klines := GetKlines(bc, pair, "1d", 1, yesterday)
 
-			if err != nil {
-				fmt.Println("ParseFloat klineUsdtVol error:", err)
+			if len(klines) == 0 {
+				defer wg.Done()
 				return
 			}
 
-			m.Store(s, usdtVol)
+			usdtVol, err := strconv.ParseFloat(klines[0].QuoteAssetVolume, 64)
+			if err != nil {
+				fmt.Println("ParseFloat klines[0].QuoteAssetVolume error:", err, pair)
+				defer wg.Done()
+				return
+			}
+
+			m.Store(pair, usdtVol)
 			defer wg.Done()
-		}()
+		}(p)
 	}
 
 	wg.Wait()
