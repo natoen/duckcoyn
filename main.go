@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -25,8 +24,6 @@ func main() {
 	yesterdayUsdtPairs := helpers.GetYesterdayUsdtPairs(bc, pairs)
 	skipPairsMap := sync.Map{}
 
-	fmt.Println(yesterdayUsdtPairs, "yesterday USDT pairs")
-
 	// run every minute
 	c.AddFunc("* * * * *", func() {
 		t := time.Now().Add(-1 * time.Minute)
@@ -38,8 +35,6 @@ func main() {
 		if t.Hour() == 9 && t.Minute() == 0 {
 			pairs = helpers.GetUsdtPairs(bc)
 			yesterdayUsdtPairs = helpers.GetYesterdayUsdtPairs(bc, pairs)
-
-			fmt.Println(yesterdayUsdtPairs, "yesterday USDT pairs")
 		}
 
 		helpers.CheckForSpikingCoins(yesterdayUsdtPairs, bc, sc, t, &skipPairsMap)
