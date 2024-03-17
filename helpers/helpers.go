@@ -63,7 +63,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			}
 
 			percentUp := (latestKlineClose / latestKlineOpen)
-			is09PercentUp := percentUp >= 1.009
+			is1PercentUp := percentUp >= 1.009 // 0.9 and not really 1
 			yesterdayUsdtVol := yesterdayUsdtPairs[pair]
 			yesterdayTodayUsdtVolRate := latestKlineUsdtVol / yesterdayUsdtVol
 			yesterdayUsdtVolPercentage := yesterdayTodayUsdtVolRate * 100
@@ -76,7 +76,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 				channelID := "C01UHA03VEY"
 				spd.Store(pair, latestKlineUsdtVol)
 				postSlackMessage(sc, channelID, message)
-			} else if !isSkipPair && (isUsdtVol4PercentOfYesterday || is09PercentUp) {
+			} else if !isSkipPair && (isUsdtVol4PercentOfYesterday || is1PercentUp) {
 				channelID := "C01V0V91NTS"
 				sp.Store(pair, latestKlineUsdtVol)
 				postSlackMessage(sc, channelID, message)
@@ -240,7 +240,7 @@ func postSlackMessage(sc *slack.Client, channelId string, message string) {
 }
 
 func Surging15Min(index int, k []*binance.Kline, usdtYesterday float64) bool {
-	var totalUsdtVol float64
+	totalUsdtVol := 0.0
 	latestKlineClose, _ := strconv.ParseFloat(k[index].Close, 64)
 
 	for i := index; i >= 0; i-- {
@@ -264,7 +264,7 @@ func Surging15Min(index int, k []*binance.Kline, usdtYesterday float64) bool {
 			}
 
 			is16PercentOfUsdtVolYesterday := (totalUsdtVol/usdtYesterday >= 0.16)
-			isUp7Percent := (i <= 90) && (latestKlineClose/open >= 1.007)
+			isUp7Percent := (i <= 90) && (latestKlineClose/open >= 1.07)
 
 			if is16PercentOfUsdtVolYesterday || isUp7Percent {
 				return true
