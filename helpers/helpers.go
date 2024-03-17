@@ -268,7 +268,7 @@ func Surging15Min(index int, k []*binance.Kline, usdtYesterday float64) bool {
 				}
 			}
 
-			is16PercentOfUsdtVolYesterday := (totalUsdtVol/usdtYesterday >= (((counter15thMin * 0.25) / 24) * 2))
+			is16PercentOfUsdtVolYesterday := (totalUsdtVol/usdtYesterday >= 0.16) && (totalUsdtVol/usdtYesterday >= ((counter15thMin * 0.25 * 2) / 24))
 			isUp7Percent := (i <= 90) && (latestKlineClose/open >= 1.07)
 
 			if is16PercentOfUsdtVolYesterday || isUp7Percent {
