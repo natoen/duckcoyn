@@ -72,7 +72,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 
 			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %.0f%% %s %s %.2f%% %s", coinName, coinName, yesterdayUsdtVolPercentage, numShortener(latestKlineUsdtVol), numShortener(yesterdayUsdtVol), (percentUp-1)*100, t.String()[11:16])
 
-			if !isSkipPairDay && Surging15Min(indexOfLastKline, klines, yesterdayUsdtVol) {
+			if !isSkipPairDay && ((t.Minute()+1)%15 == 0) && Surging15Min(indexOfLastKline, klines, yesterdayUsdtVol) {
 				channelID := "C01UHA03VEY"
 				spd.Store(pair, latestKlineUsdtVol)
 				postSlackMessage(sc, channelID, message)
@@ -244,6 +244,8 @@ func postSlackMessage(sc *slack.Client, channelId string, message string) {
 
 func Surging15Min(index int, k []*binance.Kline, usdtYesterday float64) bool {
 	totalUsdtVol := 0.0
+	counter15thMin := 0.0
+	redCounter := 0
 	latestKlineClose, _ := strconv.ParseFloat(k[index].Close, 64)
 
 	for i := index; i >= 0; i-- {
@@ -252,21 +254,21 @@ func Surging15Min(index int, k []*binance.Kline, usdtYesterday float64) bool {
 		usdtVol, _ := strconv.ParseFloat(kline.QuoteAssetVolume, 64)
 		totalUsdtVol = totalUsdtVol + usdtVol
 		is15thMin := i%15 == 0
-		redCounter := 0
 
 		if is15thMin {
+			counter15thMin = counter15thMin + 1
 			close15Min, _ := strconv.ParseFloat(k[i+14].Close, 64)
 			isGreen := open <= close15Min
 
 			if !isGreen {
-				if redCounter >= 1 || 0.995 > close15Min/open {
+				redCounter = redCounter + 1
+
+				if redCounter > 1 || 0.995 > close15Min/open {
 					return false
 				}
-
-				redCounter = 1
 			}
 
-			is16PercentOfUsdtVolYesterday := (totalUsdtVol/usdtYesterday >= 0.16)
+			is16PercentOfUsdtVolYesterday := (totalUsdtVol/usdtYesterday >= (((counter15thMin * 0.25) / 24) * 2))
 			isUp7Percent := (i <= 90) && (latestKlineClose/open >= 1.07)
 
 			if is16PercentOfUsdtVolYesterday || isUp7Percent {

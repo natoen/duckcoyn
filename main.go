@@ -33,8 +33,11 @@ func main() {
 			skipPairsMap = sync.Map{}
 		}
 
-		if t.Hour() == 9 && t.Minute() == 0 {
+		if (t.Hour() == 9 || t.Hour() == 21) && t.Minute() == 0 {
 			skipPairsMapDay = sync.Map{}
+		}
+
+		if t.Hour() == 9 && t.Minute() == 0 {
 			pairs = helpers.GetUsdtPairs(bc)
 			yesterdayUsdtPairs = helpers.GetYesterdayUsdtPairs(bc, pairs)
 		}
