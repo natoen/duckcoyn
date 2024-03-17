@@ -137,6 +137,9 @@ func GetUsdtPairs(bc *binance.Client) []string {
 		"LENDUSDT":  true,
 		"WBTCUSDT":  true,
 		"BCCUSDT":   true,
+		"PAXUSDT":   true,
+		"USDSBUSDT": true,
+		"MFTUSDT":   true,
 	}
 
 	var symbols []string
@@ -256,7 +259,7 @@ func Surging15Min(index int, k []*binance.Kline, usdtYesterday float64) bool {
 			isGreen := open <= close15Min
 
 			if !isGreen {
-				if redCounter == 1 || 0.995 > close15Min/open {
+				if redCounter >= 1 || 0.995 > close15Min/open {
 					return false
 				}
 
