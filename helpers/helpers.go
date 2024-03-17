@@ -22,7 +22,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 		_, isSkipPair := sp.Load(pair)
 		_, isSkipPairDay := spd.Load(pair)
 
-		if isSkipPair || isSkipPairDay {
+		if isSkipPair && isSkipPairDay {
 			continue
 		}
 
@@ -70,22 +70,18 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			isUsdtVol4PercentOfYesterday := (yesterdayTodayUsdtVolRate >= 0.04) && (latestKlineUsdtVol >= 40000.0)
 			coinName := pair[0 : len(pair)-4]
 
-			if !isUsdtVol4PercentOfYesterday && !is09PercentUp {
-				defer wg.Done()
-				return
-			}
-
-			channelID := "C01V0V91NTS"
-
-			if isSurging15Min(indexOfLastKline, klines, yesterdayUsdtVol) {
-				channelID = "C01UHA03VEY"
-				spd.Store(pair, latestKlineUsdtVol)
-			} else {
-				sp.Store(pair, latestKlineUsdtVol)
-			}
-
 			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %.0f%% %s %s %.2f%% %s", coinName, coinName, yesterdayUsdtVolPercentage, numShortener(latestKlineUsdtVol), numShortener(yesterdayUsdtVol), (percentUp-1)*100, t.String()[11:16])
-			postSlackMessage(sc, channelID, message)
+
+			if !isSkipPairDay && Surging15Min(indexOfLastKline, klines, yesterdayUsdtVol) {
+				channelID := "C01UHA03VEY"
+				spd.Store(pair, latestKlineUsdtVol)
+				postSlackMessage(sc, channelID, message)
+			} else if !isSkipPair && (isUsdtVol4PercentOfYesterday || is09PercentUp) {
+				channelID := "C01V0V91NTS"
+				sp.Store(pair, latestKlineUsdtVol)
+				postSlackMessage(sc, channelID, message)
+			}
+
 			defer wg.Done()
 		}(pair)
 	}
@@ -243,21 +239,36 @@ func postSlackMessage(sc *slack.Client, channelId string, message string) {
 	}
 }
 
-func isSurging15Min(index int, k []*binance.Kline, usdtYesterday float64) bool {
+func Surging15Min(index int, k []*binance.Kline, usdtYesterday float64) bool {
 	var totalUsdtVol float64
 	latestKlineClose, _ := strconv.ParseFloat(k[index].Close, 64)
 
 	for i := index; i >= 0; i-- {
 		kline := k[i]
+		open, _ := strconv.ParseFloat(kline.Open, 64)
 		usdtVol, _ := strconv.ParseFloat(kline.QuoteAssetVolume, 64)
 		totalUsdtVol = totalUsdtVol + usdtVol
-		open, _ := strconv.ParseFloat(kline.Open, 64)
 		is15thMin := i%15 == 0
-		is16PercentOfUsdtVolYesterday := (totalUsdtVol/usdtYesterday >= 0.16)
-		isUp7Percent := (latestKlineClose/open >= 1.007)
+		redCounter := 0
 
-		if is15thMin && (is16PercentOfUsdtVolYesterday || isUp7Percent) {
-			return true
+		if is15thMin {
+			close15Min, _ := strconv.ParseFloat(k[i+14].Close, 64)
+			isGreen := open <= close15Min
+
+			if !isGreen {
+				if redCounter == 1 || 0.995 > close15Min/open {
+					return false
+				}
+
+				redCounter = 1
+			}
+
+			is16PercentOfUsdtVolYesterday := (totalUsdtVol/usdtYesterday >= 0.16)
+			isUp7Percent := (i <= 90) && (latestKlineClose/open >= 1.007)
+
+			if is16PercentOfUsdtVolYesterday || isUp7Percent {
+				return true
+			}
 		}
 	}
 
