@@ -38,21 +38,9 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 				return
 			}
 
-			if isAHigherKlineOpenExists(indexOfLastKline, klines, latestKlineClose) {
-				defer wg.Done()
-				return
-			}
-
 			latestKlineOpen, err := strconv.ParseFloat(latestKline.Open, 64)
 			if err != nil {
 				fmt.Println("ParseFloat latestKlineOpen error:", latestKline, err)
-				return
-			}
-
-			isGreen := latestKlineOpen <= latestKlineClose
-
-			if !isGreen {
-				defer wg.Done()
 				return
 			}
 
@@ -69,14 +57,16 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			yesterdayUsdtVolPercentage := yesterdayTodayUsdtVolRate * 100
 			isUsdtVol4PercentOfYesterday := (yesterdayTodayUsdtVolRate >= 0.04) && (latestKlineUsdtVol >= 40000.0)
 			coinName := pair[0 : len(pair)-4]
+			isGreen := latestKlineOpen <= latestKlineClose
+			isAHigher1mKlineOpenExists := IsAHigher1mKlineOpenExists(indexOfLastKline, klines, latestKlineClose)
 
 			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %.0f%% %s %s %.2f%% %s", coinName, coinName, yesterdayUsdtVolPercentage, numShortener(latestKlineUsdtVol), numShortener(yesterdayUsdtVol), (percentUp-1)*100, t.String()[11:16])
 
-			if !isSkipPairDay && ((t.Minute()+1)%15 == 0) && Surging15Min(indexOfLastKline, klines, yesterdayUsdtVol) {
+			if !isSkipPairDay && ((t.Minute()+1)%15 == 0) && !IsAHigher15mKlineOpenExists(indexOfLastKline, klines, latestKlineClose) && Surging15Min(indexOfLastKline, klines, yesterdayUsdtVol) {
 				channelID := "C01UHA03VEY"
 				spd.Store(pair, latestKlineUsdtVol)
 				postSlackMessage(sc, channelID, message)
-			} else if !isSkipPair && (isUsdtVol4PercentOfYesterday || is1PercentUp) {
+			} else if !isSkipPair && !isAHigher1mKlineOpenExists && isGreen && (isUsdtVol4PercentOfYesterday || is1PercentUp) {
 				channelID := "C01V0V91NTS"
 				sp.Store(pair, latestKlineUsdtVol)
 				postSlackMessage(sc, channelID, message)
@@ -140,6 +130,11 @@ func GetUsdtPairs(bc *binance.Client) []string {
 		"PAXUSDT":   true,
 		"USDSBUSDT": true,
 		"MFTUSDT":   true,
+		"BTSUSDT":   true,
+		"XZCUSDT":   true,
+		"PLAUSDT":   true,
+		"TOMOUSDT":  true,
+		"XMRUSDT":   true,
 	}
 
 	var symbols []string
@@ -214,7 +209,7 @@ func numShortener(n float64) string {
 	return fmt.Sprintf("%.3f%s", n/divisor, suffix)
 }
 
-func isAHigherKlineOpenExists(lastIndex int, k []*binance.Kline, c float64) bool {
+func IsAHigher1mKlineOpenExists(lastIndex int, k []*binance.Kline, c float64) bool {
 	for i := 0; i < lastIndex; i++ {
 		currentKlineOpen, err := strconv.ParseFloat(k[i].Open, 64)
 
@@ -240,6 +235,22 @@ func postSlackMessage(sc *slack.Client, channelId string, message string) {
 	if err != nil {
 		fmt.Println("PostMessage", channelId, timestamp, err)
 	}
+}
+
+func IsAHigher15mKlineOpenExists(lastIndex int, k []*binance.Kline, c float64) bool {
+	for i := lastIndex; i >= 0; i-- {
+		is15thMin := i%15 == 0
+
+		if is15thMin {
+			currentKlineOpen, _ := strconv.ParseFloat(k[i].Open, 64)
+
+			if currentKlineOpen > c {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func Surging15Min(index int, k []*binance.Kline, usdtYesterday float64) bool {
