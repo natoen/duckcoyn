@@ -253,34 +253,42 @@ func IsAHigher15mKlineOpenExists(lastIndex int, k []*binance.Kline, c float64) b
 	return false
 }
 
-func Surging15Min(index int, k []*binance.Kline, usdtYesterday float64) bool {
-	totalUsdtVol := 0.0
+// checks the 15th minute bars to be increasing in price moving forward while
+// having an accumulative volume of 16% of yesterday
+// e.g. 00:00 is 150, 00:15 is 160, etc
+func Surging15Min(lastIndex int, k []*binance.Kline, usdtYesterday float64) bool {
+	accumUsdtVol := 0.0
 	counter15thMin := 0.0
 	redCounter := 0
-	latestKlineClose, _ := strconv.ParseFloat(k[index].Close, 64)
+	latestKlineClose, _ := strconv.ParseFloat(k[lastIndex].Close, 64)
 
-	for i := index; i >= 0; i-- {
+	for i := lastIndex; i >= 0; i-- {
 		kline := k[i]
-		open, _ := strconv.ParseFloat(kline.Open, 64)
+		lastIndexOpen, _ := strconv.ParseFloat(kline.Open, 64)
 		usdtVol, _ := strconv.ParseFloat(kline.QuoteAssetVolume, 64)
-		totalUsdtVol = totalUsdtVol + usdtVol
+		accumUsdtVol = accumUsdtVol + usdtVol
 		is15thMin := i%15 == 0
 
 		if is15thMin {
 			counter15thMin = counter15thMin + 1
-			close15Min, _ := strconv.ParseFloat(k[i+14].Close, 64)
-			isGreen := open <= close15Min
+			every15MinClose, _ := strconv.ParseFloat(k[i+14].Close, 64)
+			isGreen := lastIndexOpen <= every15MinClose // same price is ok
 
 			if !isGreen {
 				redCounter = redCounter + 1
+				redKlineIsMoreThan1 := redCounter > 1
+				klineIs5PercentDown := 0.995 > every15MinClose/lastIndexOpen
 
-				if redCounter > 1 || 0.995 > close15Min/open {
+				if redKlineIsMoreThan1 || klineIs5PercentDown {
 					return false
 				}
 			}
 
-			is16PercentOfUsdtVolYesterday := (totalUsdtVol/usdtYesterday >= 0.16) && (totalUsdtVol/usdtYesterday >= ((counter15thMin * 0.25 * 2) / 24))
-			isUp7Percent := (i <= 90) && (latestKlineClose/open >= 1.07)
+			vol15MinX2 := ((counter15thMin * 0.25 * 2) / 24)
+			usdtVolYesterdayRatio := accumUsdtVol / usdtYesterday
+			isAccum2xRateOfYesterday := usdtVolYesterdayRatio >= vol15MinX2
+			is16PercentOfUsdtVolYesterday := (usdtVolYesterdayRatio >= 0.16) && (isAccum2xRateOfYesterday)
+			isUp7Percent := (i <= 90) && (latestKlineClose/lastIndexOpen >= 1.07)
 
 			if is16PercentOfUsdtVolYesterday || isUp7Percent {
 				return true
