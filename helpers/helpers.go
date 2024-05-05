@@ -51,7 +51,16 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			coinName := pair[0 : len(pair)-4]
 			isGreen := minuteKlineOpen <= minuteKlineClose
 			isAHigher1mKlineOpenExists := IsAHigher1mKlineOpenExists(indexOfLastMinuteKline, minuteKlines, minuteKlineClose)
-			isTodayVolRate2x := todayVolRatio >= 2
+			hour := t.Hour()
+
+			if hour < 9 {
+				hour = hour + 15
+			} else {
+				hour = hour - 9
+			}
+
+			dayMinutesRatio := float64((hour*60 + t.Minute() + 1) / 1440)
+			isTodayVolRate2x := (yesterdayUsdtVol * dayMinutesRatio * 2) <= todayKlineUsdtVol
 
 			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
