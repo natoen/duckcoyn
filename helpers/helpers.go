@@ -15,8 +15,8 @@ import (
 var wg sync.WaitGroup
 
 func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Client, sc *slack.Client, t time.Time, sp *sync.Map, spd *sync.Map) {
-	numOfKlines := 1000
-	indexOfLastKline := numOfKlines - 1
+	numOfMinuteKlines := 1000
+	indexOfLastMinuteKline := numOfMinuteKlines - 1
 
 	for pair := range yesterdayUsdtPairs {
 		_, isSkipPair := sp.Load(pair)
@@ -29,8 +29,8 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 		wg.Add(1)
 
 		go func(pair string) {
-			klines := GetKlines(bc, pair, "1m", numOfKlines, t.UnixMilli())
-			minuteKline := klines[indexOfLastKline]
+			minuteKlines := GetKlines(bc, pair, "1m", numOfMinuteKlines, t.UnixMilli())
+			minuteKline := minuteKlines[indexOfLastMinuteKline]
 			minuteKlineClose, _ := strconv.ParseFloat(minuteKline.Close, 64)
 			minuteKlineOpen, _ := strconv.ParseFloat(minuteKline.Open, 64)
 			minuteKlineUsdtVol, _ := strconv.ParseFloat(minuteKline.QuoteAssetVolume, 64)
@@ -50,12 +50,12 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			// isUsdtVol4PercentOfYesterday := (yesterdayTodayUsdtVolRate >= 0.04) && (latestKlineUsdtVol >= 40000.0)
 			coinName := pair[0 : len(pair)-4]
 			isGreen := minuteKlineOpen <= minuteKlineClose
-			isAHigher1mKlineOpenExists := IsAHigher1mKlineOpenExists(indexOfLastKline, klines, minuteKlineClose)
+			isAHigher1mKlineOpenExists := IsAHigher1mKlineOpenExists(indexOfLastMinuteKline, minuteKlines, minuteKlineClose)
 			isTodayVolRate2x := todayVolRatio >= 2
 
 			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
-			// if !isSkipPairDay && ((t.Minute()+1)%15 == 0) && !IsAHigher15mKlineOpenExists(indexOfLastKline, klines, latestKlineClose) && Surging15Min(indexOfLastKline, klines, yesterdayUsdtVol) {
+			// if !isSkipPairDay && ((t.Minute()+1)%15 == 0) && !IsAHigher15mKlineOpenExists(indexOfLastMinuteKline, klines, latestKlineClose) && Surging15Min(indexOfLastMinuteKline, klines, yesterdayUsdtVol) {
 			// 	channelID := "C01UHA03VEY"
 			// 	spd.Store(pair, latestKlineUsdtVol)
 			// 	postSlackMessage(sc, channelID, message)
