@@ -39,15 +39,9 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			todayKlineClose, _ := strconv.ParseFloat(todayKline.Close, 64)
 			todayKlineOpen, _ := strconv.ParseFloat(todayKline.Open, 64)
 			todayKlineUsdtVol, _ := strconv.ParseFloat(todayKline.QuoteAssetVolume, 64)
-
-			// percentUp := (latestKlineClose / latestKlineOpen)
-			// is1PercentUp := percentUp >= 1.009 // 0.9 and not really 1
 			todayPriceRatio := todayKlineClose / todayKlineOpen
 			yesterdayUsdtVol := yesterdayUsdtPairs[pair]
 			todayVolRatio := todayKlineUsdtVol / yesterdayUsdtVol
-			// yesterdayTodayUsdtVolRate := minuteKlineUsdtVol / yesterdayUsdtVol
-			// yesterdayUsdtVolPercentage := yesterdayTodayUsdtVolRate * 100
-			// isUsdtVol4PercentOfYesterday := (yesterdayTodayUsdtVolRate >= 0.04) && (latestKlineUsdtVol >= 40000.0)
 			coinName := pair[0 : len(pair)-4]
 			isGreen := minuteKlineOpen <= minuteKlineClose
 			isAHigher1mKlineOpenExists := IsAHigher1mKlineOpenExists(indexOfLastMinuteKline, minuteKlines, minuteKlineClose)
@@ -59,16 +53,10 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 				hour = hour - 9
 			}
 
-			dayMinutesRatio := float64((hour*60 + t.Minute() + 1) / 1440)
+			dayMinutesRatio := float64(hour*60+t.Minute()+1) / 1440.0
 			isTodayVolRate2x := (yesterdayUsdtVol * dayMinutesRatio * 2) <= todayKlineUsdtVol
 
-			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
-
-			// if !isSkipPairDay && ((t.Minute()+1)%15 == 0) && !IsAHigher15mKlineOpenExists(indexOfLastMinuteKline, klines, latestKlineClose) && Surging15Min(indexOfLastMinuteKline, klines, yesterdayUsdtVol) {
-			// 	channelID := "C01UHA03VEY"
-			// 	spd.Store(pair, latestKlineUsdtVol)
-			// 	postSlackMessage(sc, channelID, message)
-			// } else
+			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(todayKlineUsdtVol), numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
 			if !isSkipPairDay && !isAHigher1mKlineOpenExists && isGreen && isTodayVolRate2x {
 				channelID := "C01UHA03VEY"
@@ -139,6 +127,7 @@ func GetUsdtPairs(bc *binance.Client) []string {
 		"PLAUSDT":   true,
 		"TOMOUSDT":  true,
 		"XMRUSDT":   true,
+		"AEURUSDT":  true,
 	}
 
 	var symbols []string
