@@ -15,7 +15,7 @@ import (
 var wg sync.WaitGroup
 
 func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Client, sc *slack.Client, t time.Time, sp *sync.Map, spd *sync.Map) {
-	numOfKlines := 240
+	numOfKlines := 1000
 	indexOfLastKline := numOfKlines - 1
 
 	for pair := range yesterdayUsdtPairs {
@@ -30,45 +30,40 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 
 		go func(pair string) {
 			klines := GetKlines(bc, pair, "1m", numOfKlines, t.UnixMilli())
-			latestKline := klines[indexOfLastKline]
+			minuteKline := klines[indexOfLastKline]
+			minuteKlineClose, _ := strconv.ParseFloat(minuteKline.Close, 64)
+			minuteKlineOpen, _ := strconv.ParseFloat(minuteKline.Open, 64)
+			minuteKlineUsdtVol, _ := strconv.ParseFloat(minuteKline.QuoteAssetVolume, 64)
 
-			latestKlineClose, err := strconv.ParseFloat(latestKline.Close, 64)
-			if err != nil {
-				fmt.Println("ParseFloat latestKlineClose error:", latestKline, err)
-				return
-			}
+			todayKline := GetKlines(bc, pair, "1d", 1, t.UnixMilli())[0]
+			todayKlineClose, _ := strconv.ParseFloat(todayKline.Close, 64)
+			todayKlineOpen, _ := strconv.ParseFloat(todayKline.Open, 64)
+			todayKlineUsdtVol, _ := strconv.ParseFloat(todayKline.QuoteAssetVolume, 64)
 
-			latestKlineOpen, err := strconv.ParseFloat(latestKline.Open, 64)
-			if err != nil {
-				fmt.Println("ParseFloat latestKlineOpen error:", latestKline, err)
-				return
-			}
-
-			latestKlineUsdtVol, err := strconv.ParseFloat(latestKline.QuoteAssetVolume, 64)
-			if err != nil {
-				fmt.Println("ParseFloat latestKlineUsdtVol error:", latestKline, err)
-				return
-			}
-
-			percentUp := (latestKlineClose / latestKlineOpen)
-			is1PercentUp := percentUp >= 1.009 // 0.9 and not really 1
+			// percentUp := (latestKlineClose / latestKlineOpen)
+			// is1PercentUp := percentUp >= 1.009 // 0.9 and not really 1
+			todayPriceRatio := todayKlineClose / todayKlineOpen
 			yesterdayUsdtVol := yesterdayUsdtPairs[pair]
-			yesterdayTodayUsdtVolRate := latestKlineUsdtVol / yesterdayUsdtVol
-			yesterdayUsdtVolPercentage := yesterdayTodayUsdtVolRate * 100
-			isUsdtVol4PercentOfYesterday := (yesterdayTodayUsdtVolRate >= 0.04) && (latestKlineUsdtVol >= 40000.0)
+			todayVolRatio := todayKlineUsdtVol / yesterdayUsdtVol
+			// yesterdayTodayUsdtVolRate := minuteKlineUsdtVol / yesterdayUsdtVol
+			// yesterdayUsdtVolPercentage := yesterdayTodayUsdtVolRate * 100
+			// isUsdtVol4PercentOfYesterday := (yesterdayTodayUsdtVolRate >= 0.04) && (latestKlineUsdtVol >= 40000.0)
 			coinName := pair[0 : len(pair)-4]
-			isGreen := latestKlineOpen <= latestKlineClose
-			isAHigher1mKlineOpenExists := IsAHigher1mKlineOpenExists(indexOfLastKline, klines, latestKlineClose)
+			isGreen := minuteKlineOpen <= minuteKlineClose
+			isAHigher1mKlineOpenExists := IsAHigher1mKlineOpenExists(indexOfLastKline, klines, minuteKlineClose)
+			isTodayVolRate2x := todayVolRatio >= 2
 
-			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %.0f%% %s %s %.2f%% %s", coinName, coinName, yesterdayUsdtVolPercentage, numShortener(latestKlineUsdtVol), numShortener(yesterdayUsdtVol), (percentUp-1)*100, t.String()[11:16])
+			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
-			if !isSkipPairDay && ((t.Minute()+1)%15 == 0) && !IsAHigher15mKlineOpenExists(indexOfLastKline, klines, latestKlineClose) && Surging15Min(indexOfLastKline, klines, yesterdayUsdtVol) {
+			// if !isSkipPairDay && ((t.Minute()+1)%15 == 0) && !IsAHigher15mKlineOpenExists(indexOfLastKline, klines, latestKlineClose) && Surging15Min(indexOfLastKline, klines, yesterdayUsdtVol) {
+			// 	channelID := "C01UHA03VEY"
+			// 	spd.Store(pair, latestKlineUsdtVol)
+			// 	postSlackMessage(sc, channelID, message)
+			// } else
+
+			if !isSkipPairDay && !isAHigher1mKlineOpenExists && isGreen && isTodayVolRate2x {
 				channelID := "C01UHA03VEY"
-				spd.Store(pair, latestKlineUsdtVol)
-				postSlackMessage(sc, channelID, message)
-			} else if !isSkipPair && !isAHigher1mKlineOpenExists && isGreen && (isUsdtVol4PercentOfYesterday || is1PercentUp) {
-				channelID := "C01V0V91NTS"
-				sp.Store(pair, latestKlineUsdtVol)
+				spd.Store(pair, minuteKlineUsdtVol)
 				postSlackMessage(sc, channelID, message)
 			}
 
