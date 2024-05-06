@@ -14,17 +14,12 @@ import (
 
 var wg sync.WaitGroup
 
-func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Client, sc *slack.Client, t time.Time, sp *sync.Map, spd *sync.Map) {
+func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Client, sc *slack.Client, t time.Time, spd *sync.Map) {
 	numOfMinuteKlines := 1000
 	indexOfLastMinuteKline := numOfMinuteKlines - 1
 
 	for pair := range yesterdayUsdtPairs {
-		_, isSkipPair := sp.Load(pair)
 		_, isSkipPairDay := spd.Load(pair)
-
-		if isSkipPair && isSkipPairDay {
-			continue
-		}
 
 		wg.Add(1)
 
@@ -58,13 +53,21 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 
 			dayMinutesRatio := float64(hour*60+t.Minute()+1) / 1440.0
 			isTodayVolRate2x := (yesterdayUsdtVol * dayMinutesRatio * 2) <= todayKlineUsdtVol
+			isTodayVolRate2p5x := (yesterdayUsdtVol * dayMinutesRatio * 2.5) <= todayKlineUsdtVol
+			isTodayVolRate3x := (yesterdayUsdtVol * dayMinutesRatio * 3) <= todayKlineUsdtVol
 
 			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(todayKlineUsdtVol), numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
-			if !isSkipPairDay && !isAHigher1mKlineOpenExists && isGreen && isTodayVolMorethan100k && (isTodayVolRate2x || (isMinuteVolMorethan100k && isMinVol10PercentOfYesterdayVol)) {
-				channelID := "C01UHA03VEY"
-				spd.Store(pair, minuteKlineUsdtVol)
-				postSlackMessage(sc, channelID, message)
+			if !isAHigher1mKlineOpenExists && isGreen && isTodayVolMorethan100k {
+				if !isSkipPairDay && (isTodayVolRate2x || (isMinuteVolMorethan100k && isMinVol10PercentOfYesterdayVol)) {
+					spd.Store(pair, minuteKlineUsdtVol)
+					postSlackMessage(sc, "C01UHA03VEY", message)
+				} else if isTodayVolRate2p5x {
+					postSlackMessage(sc, "C01V0V91NTS", fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> 2.5X %s %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(todayKlineUsdtVol), numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16]))
+				} else if isTodayVolRate3x {
+					postSlackMessage(sc, "C01V0V91NTS", fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> 3X %s %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(todayKlineUsdtVol), numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16]))
+				}
+
 			}
 
 			defer wg.Done()
