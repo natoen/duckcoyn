@@ -44,7 +44,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			isTodayVolMorethan100k := todayKlineUsdtVol >= 100000.0
 			isMinuteVolMorethan100k := minuteKlineUsdtVol >= 100000.0
 			isMinVol10PercentOfYesterdayVol := minuteKlineUsdtVol/yesterdayUsdtVol >= 0.1
-			isMinuteChangeUpBy4Percent := (minuteKlineClose/minuteKlineOpen)-1 >= 0.04
+			isMinuteChangeUpBy4Percent := minuteKlineClose/minuteKlineOpen >= 1.04
 
 			if hour < 9 {
 				hour = hour + 15
