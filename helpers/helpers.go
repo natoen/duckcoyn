@@ -46,7 +46,9 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			isGreen := minuteKlineOpen <= minuteKlineClose
 			isAHigher1mKlineOpenExists := IsAHigher1mKlineOpenExists(indexOfLastMinuteKline, minuteKlines, minuteKlineClose)
 			hour := t.Hour()
-			isMorethan42k := todayKlineUsdtVol >= 40000.0
+			isTodayVolMorethan100k := todayKlineUsdtVol >= 100000.0
+			isMinuteVolMorethan100k := minuteKlineUsdtVol >= 100000.0
+			isMinVol10PercentOfYesterdayVol := minuteKlineUsdtVol/yesterdayUsdtVol <= 0.1
 
 			if hour < 9 {
 				hour = hour + 15
@@ -59,7 +61,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 
 			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(todayKlineUsdtVol), numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
-			if !isSkipPairDay && !isAHigher1mKlineOpenExists && isGreen && isMorethan42k && isTodayVolRate2x {
+			if !isSkipPairDay && !isAHigher1mKlineOpenExists && isGreen && isTodayVolMorethan100k && (isTodayVolRate2x || (isMinuteVolMorethan100k && isMinVol10PercentOfYesterdayVol)) {
 				channelID := "C01UHA03VEY"
 				spd.Store(pair, minuteKlineUsdtVol)
 				postSlackMessage(sc, channelID, message)
@@ -129,6 +131,7 @@ func GetUsdtPairs(bc *binance.Client) []string {
 		"TOMOUSDT":  true,
 		"XMRUSDT":   true,
 		"AEURUSDT":  true,
+		"FDUSD":     true,
 	}
 
 	var symbols []string
