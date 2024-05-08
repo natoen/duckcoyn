@@ -42,9 +42,9 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			isAHigher1mKlineOpenExists := IsAHigher1mKlineOpenExists(indexOfLastMinuteKline, minuteKlines, minuteKlineClose)
 			hour := t.Hour()
 			isTodayVolMorethan100k := todayKlineUsdtVol >= 100000.0
-			isMinuteVolMorethan90k := minuteKlineUsdtVol >= 90000.0
+			isMinuteVolMorethan80k := minuteKlineUsdtVol >= 80000.0
 			isMinuteVol3PercentOfYesterdayVol := minuteKlineUsdtVol/yesterdayUsdtVol >= 0.03
-			isMinuteChangeUpBy2Percent := minuteKlineClose/minuteKlineOpen >= 1.02
+			isMinuteChangeUpByPoint9Percent := minuteKlineClose/minuteKlineOpen >= 1.009
 			isMinuteChangeUpBy4Percent := minuteKlineClose/minuteKlineOpen >= 1.04
 
 			if hour < 9 {
@@ -61,7 +61,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(todayKlineUsdtVol), numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
 			if !isAHigher1mKlineOpenExists && isGreen && isTodayVolMorethan100k {
-				if !isSkipPairDay && (isTodayVolRate2x || (isMinuteVolMorethan90k && isMinuteVol3PercentOfYesterdayVol && isMinuteChangeUpBy2Percent) || isMinuteChangeUpBy4Percent) {
+				if !isSkipPairDay && (isTodayVolRate2x || (isMinuteVolMorethan80k && isMinuteVol3PercentOfYesterdayVol && isMinuteChangeUpByPoint9Percent) || isMinuteChangeUpBy4Percent) {
 					spd.Store(pair, minuteKlineUsdtVol)
 					postSlackMessage(sc, "C01UHA03VEY", message)
 				} else if isTodayVolRate2p5x {
