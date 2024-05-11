@@ -105,10 +105,19 @@ func GetKlines(bc *binance.Client, s string, i string, l int, et int64) []*binan
 
 func GetUsdtPairs(bc *binance.Client) []string {
 	// `prices` is an array of prices and symbols key-pair
-	prices, err := bc.NewListPricesService().Do(context.Background())
+	var prices []*binance.SymbolPrice
+	var err error
+	isGetPairsNotSuccess := true
 
-	if err != nil {
-		panic(err)
+	for isGetPairsNotSuccess {
+		prices, err = bc.NewListPricesService().Do(context.Background())
+
+		if err != nil {
+			fmt.Println("NewListPricesService error:", err)
+			time.Sleep(5 * time.Second)
+		} else {
+			isGetPairsNotSuccess = false
+		}
 	}
 
 	excludedSymbols := map[string]bool{
