@@ -42,10 +42,12 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			isAHigher1mKlineOpenExists := IsAHigher1mKlineOpenExists(indexOfLastMinuteKline, minuteKlines, minuteKlineClose)
 			hour := t.Hour()
 			isTodayVolMorethan100k := todayKlineUsdtVol >= 100000.0
-			isMinuteVolMorethan80k := minuteKlineUsdtVol >= 80000.0
-			isMinuteVol3PercentOfYesterdayVol := minuteKlineUsdtVol/yesterdayUsdtVol >= 0.03
+			isMinuteVolMorethan40k := minuteKlineUsdtVol >= 40000.0
+			isMinuteVol2p5PercentOfYesterdayVol := minuteKlineUsdtVol/yesterdayUsdtVol >= 0.025
 			isMinuteChangeUpByPoint9Percent := minuteKlineClose/minuteKlineOpen >= 1.009
 			isMinuteChangeUpBy4Percent := minuteKlineClose/minuteKlineOpen >= 1.04
+
+			// 2%up, 3% of yesterday's volume, 70kUSDT
 
 			if hour < 9 {
 				hour = hour + 15
@@ -55,19 +57,13 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 
 			dayMinutesRatio := float64(hour*60+t.Minute()+1) / 1440.0
 			isTodayVolRate2x := (yesterdayUsdtVol * dayMinutesRatio * 2) <= todayKlineUsdtVol
-			isTodayVolRate2p5x := (yesterdayUsdtVol * dayMinutesRatio * 2.5) <= todayKlineUsdtVol
-			isTodayVolRate3x := (yesterdayUsdtVol * dayMinutesRatio * 3) <= todayKlineUsdtVol
 
 			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(todayKlineUsdtVol), numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
 			if !isAHigher1mKlineOpenExists && isGreen && isTodayVolMorethan100k {
-				if !isSkipPairDay && (isTodayVolRate2x || (isMinuteVolMorethan80k && isMinuteVol3PercentOfYesterdayVol && isMinuteChangeUpByPoint9Percent) || isMinuteChangeUpBy4Percent) {
+				if !isSkipPairDay && (isTodayVolRate2x || (isMinuteVolMorethan40k && isMinuteVol2p5PercentOfYesterdayVol && isMinuteChangeUpByPoint9Percent) || isMinuteChangeUpBy4Percent) {
 					spd.Store(pair, minuteKlineUsdtVol)
 					postSlackMessage(sc, "C01UHA03VEY", message)
-				} else if isTodayVolRate2p5x {
-					postSlackMessage(sc, "C01V0V91NTS", fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> 2.5X %s %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(todayKlineUsdtVol), numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16]))
-				} else if isTodayVolRate3x {
-					postSlackMessage(sc, "C01V0V91NTS", fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> 3X %s %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(todayKlineUsdtVol), numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16]))
 				}
 
 			}
