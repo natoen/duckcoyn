@@ -66,17 +66,11 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 
 					if isTodayVolRate2x {
 						postSlackMessage(sc, "C01UHA03VEY", message+" 2X")
-					}
-
-					if isMinuteChangeUpBy4Percent {
+					} else if isMinuteChangeUpBy4Percent {
 						postSlackMessage(sc, "C01UHA03VEY", message+" 4%")
-					}
-
-					if isMinuteSpike {
+					} else if isMinuteSpike {
 						postSlackMessage(sc, "C01UHA03VEY", message+" 1M")
-					}
-
-					if isSurgingMinutes {
+					} else if isSurgingMinutes {
 						postSlackMessage(sc, "C01UHA03VEY", message+" 1MS")
 					}
 
