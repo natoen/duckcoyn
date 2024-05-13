@@ -46,8 +46,8 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			isMinuteVol2p5PercentOfYesterdayVol := minuteKlineUsdtVol/yesterdayUsdtVol >= 0.025
 			isMinuteChangeUpByPoint9Percent := minuteKlineClose/minuteKlineOpen >= 1.009
 			isMinuteChangeUpBy4Percent := minuteKlineClose/minuteKlineOpen >= 1.04
-
-			// 2%up, 3% of yesterday's volume, 70kUSDT
+			isMinuteSpike := (isMinuteVolMorethan40k && isMinuteVol2p5PercentOfYesterdayVol && isMinuteChangeUpByPoint9Percent)
+			isSurgingMinutes := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol)
 
 			if hour < 9 {
 				hour = hour + 15
@@ -61,9 +61,25 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(todayKlineUsdtVol), numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
 			if !isAHigher1mKlineOpenExists && isGreen && isTodayVolMorethan100k {
-				if !isSkipPairDay && (isTodayVolRate2x || (isMinuteVolMorethan40k && isMinuteVol2p5PercentOfYesterdayVol && isMinuteChangeUpByPoint9Percent) || isMinuteChangeUpBy4Percent) {
+				if !isSkipPairDay && (isTodayVolRate2x || isMinuteSpike || isMinuteChangeUpBy4Percent || isSurgingMinutes) {
 					spd.Store(pair, minuteKlineUsdtVol)
-					postSlackMessage(sc, "C01UHA03VEY", message)
+
+					if isTodayVolRate2x {
+						postSlackMessage(sc, "C01UHA03VEY", message+"2X")
+					}
+
+					if isMinuteChangeUpBy4Percent {
+						postSlackMessage(sc, "C01UHA03VEY", message+"4%")
+					}
+
+					if isMinuteSpike {
+						postSlackMessage(sc, "C01UHA03VEY", message+"1M")
+					}
+
+					if isSurgingMinutes {
+						postSlackMessage(sc, "C01UHA03VEY", message+"1MS")
+					}
+
 				}
 
 			}
@@ -300,6 +316,34 @@ func Surging15Min(lastIndex int, k []*binance.Kline, usdtYesterday float64) bool
 			if is16PercentOfUsdtVolYesterday || isUp7Percent {
 				return true
 			}
+		}
+	}
+
+	return false
+}
+
+// 2% up, 3% of yesterday's volume, 70kUSDT
+func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64) bool {
+	accumUsdtVol := 0.0
+	latestKlineClose, _ := strconv.ParseFloat(k[lastIndex].Close, 64)
+
+	for i := lastIndex; i >= 0; i-- {
+		kline := k[i]
+		open, _ := strconv.ParseFloat(kline.Open, 64)
+		close, _ := strconv.ParseFloat(kline.Close, 64)
+		usdtVol, _ := strconv.ParseFloat(kline.QuoteAssetVolume, 64)
+		accumUsdtVol = accumUsdtVol + usdtVol
+		isGreen := close >= open
+		is2PercentUp := latestKlineClose/open >= 1.02
+		isAccumUsdtVol70k := accumUsdtVol >= 70000.0
+		is3PercentOfYesterdayUsdtVol := accumUsdtVol/yesterdayUsdtVol >= 0.03
+
+		if !isGreen {
+			return false
+		}
+
+		if is2PercentUp && isAccumUsdtVol70k && is3PercentOfYesterdayUsdtVol {
+			return true
 		}
 	}
 
