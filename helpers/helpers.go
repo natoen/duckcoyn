@@ -74,7 +74,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 						message = message + " 1MS"
 					}
 
-					postSlackMessage(sc, "C01UHA03VEY", message+" 2X")
+					postSlackMessage(sc, "C01UHA03VEY", message)
 
 				}
 
