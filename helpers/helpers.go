@@ -65,14 +65,16 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 					spd.Store(pair, minuteKlineUsdtVol)
 
 					if isTodayVolRate2x {
-						postSlackMessage(sc, "C01UHA03VEY", message+" 2X")
+						message = message + " 2X"
 					} else if isMinuteChangeUpBy4Percent {
-						postSlackMessage(sc, "C01UHA03VEY", message+" 4%")
+						message = message + " 4%"
 					} else if isMinuteSpike {
-						postSlackMessage(sc, "C01UHA03VEY", message+" 1M")
+						message = message + " 1M"
 					} else if isSurgingMinutes {
-						postSlackMessage(sc, "C01UHA03VEY", message+" 1MS")
+						message = message + " 1MS"
 					}
+
+					postSlackMessage(sc, "C01UHA03VEY", message+" 2X")
 
 				}
 
