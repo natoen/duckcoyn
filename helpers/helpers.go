@@ -58,7 +58,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			dayMinutesRatio := float64(hour*60+t.Minute()+1) / 1440.0
 			isTodayVolRate2x := (yesterdayUsdtVol * dayMinutesRatio * 2) <= todayKlineUsdtVol
 
-			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(todayKlineUsdtVol), numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
+			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
 			if !isAHigher1mKlineOpenExists && isGreen && isTodayVolMorethan100k {
 				if !isSkipPairDay && (isTodayVolRate2x || isMinuteSpike || isMinuteChangeUpBy4Percent || isSurgingMinutes) {
@@ -66,11 +66,17 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 
 					if isTodayVolRate2x {
 						message = message + " 2X"
-					} else if isMinuteChangeUpBy4Percent {
+					}
+
+					if isMinuteChangeUpBy4Percent {
 						message = message + " 4%"
-					} else if isMinuteSpike {
+					}
+
+					if isMinuteSpike {
 						message = message + " 1M"
-					} else if isSurgingMinutes {
+					}
+
+					if isSurgingMinutes {
 						message = message + " 1MS"
 					}
 
