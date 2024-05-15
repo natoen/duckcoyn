@@ -14,17 +14,15 @@ import (
 
 var wg sync.WaitGroup
 
-func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Client, sc *slack.Client, t time.Time, spd *sync.Map) {
-	numOfMinuteKlines := 1000
-	indexOfLastMinuteKline := numOfMinuteKlines - 1
-
+func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Client, sc *slack.Client, t time.Time, lastVolRateMap *sync.Map) {
 	for pair := range yesterdayUsdtPairs {
-		_, isSkipPairDay := spd.Load(pair)
+		lastVolRate, isLastVolRateExists := lastVolRateMap.Load(pair)
 
 		wg.Add(1)
 
 		go func(pair string) {
-			minuteKlines := GetKlines(bc, pair, "1m", numOfMinuteKlines, t.UnixMilli())
+			minuteKlines := GetKlines(bc, pair, "1m", 1000, t.UnixMilli())
+			indexOfLastMinuteKline := len(minuteKlines) - 1
 			minuteKline := minuteKlines[indexOfLastMinuteKline]
 			minuteKlineClose, _ := strconv.ParseFloat(minuteKline.Close, 64)
 			minuteKlineOpen, _ := strconv.ParseFloat(minuteKline.Open, 64)
@@ -56,17 +54,18 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			}
 
 			dayMinutesRatio := float64(hour*60+t.Minute()+1) / 1440.0
-			isTodayVolRate2x := (yesterdayUsdtVol * dayMinutesRatio * 2) <= todayKlineUsdtVol
+			volRate := todayKlineUsdtVol / (yesterdayUsdtVol * dayMinutesRatio)
+			isTodayVolRate2x := 2 <= volRate
 
 			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
 			if !isAHigher1mKlineOpenExists && isGreen && isTodayVolMorethan100k {
-				if !isSkipPairDay && (isTodayVolRate2x || isMinuteSpike || isMinuteChangeUpBy4Percent || isSurgingMinutes) {
-					spd.Store(pair, minuteKlineUsdtVol)
-
+				if (!isLastVolRateExists || (lastVolRate.(float64)+0.5) <= volRate) && (isTodayVolRate2x || isMinuteSpike || isMinuteChangeUpBy4Percent || isSurgingMinutes) {
 					if isTodayVolRate2x {
-						message = message + " 2X"
+						message = message + fmt.Sprintf(" %.2f", volRate)
 					}
+
+					lastVolRateMap.Store(pair, volRate)
 
 					if isMinuteChangeUpBy4Percent {
 						message = message + " 4%"
