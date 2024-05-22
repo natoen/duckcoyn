@@ -31,6 +31,7 @@ func main() {
 
 		if (t.Hour() == 9) && t.Minute() == 0 {
 			skipPair1mMap = sync.Map{}
+			lastVolRateMap = sync.Map{}
 		}
 
 		if t.Hour() == 9 && t.Minute() == 0 {
