@@ -22,14 +22,15 @@ func main() {
 	c := cron.New()
 	pairs := helpers.GetUsdtPairs(bc)
 	yesterdayUsdtPairs := helpers.GetYesterdayUsdtPairs(bc, pairs)
-	skipPairsMapDay := sync.Map{}
+	skipPair1mMap := sync.Map{}
+	lastVolRateMap := sync.Map{}
 
 	// run every minute
 	c.AddFunc("* * * * *", func() {
 		t := time.Now().Add(-1 * time.Minute)
 
 		if (t.Hour() == 9) && t.Minute() == 0 {
-			skipPairsMapDay = sync.Map{}
+			skipPair1mMap = sync.Map{}
 		}
 
 		if t.Hour() == 9 && t.Minute() == 0 {
@@ -37,7 +38,7 @@ func main() {
 			yesterdayUsdtPairs = helpers.GetYesterdayUsdtPairs(bc, pairs)
 		}
 
-		helpers.CheckForSpikingCoins(yesterdayUsdtPairs, bc, sc, t, &skipPairsMapDay)
+		helpers.CheckForSpikingCoins(yesterdayUsdtPairs, bc, sc, t, &lastVolRateMap, &skipPair1mMap)
 	})
 	c.Start()
 
