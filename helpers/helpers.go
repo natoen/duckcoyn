@@ -98,6 +98,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 					}
 
 					lastVolRateMap.Store(pair, volRateExpireTime{VolRate: volRate, ExpireTime: expireTime})
+				}
 
 				if isPostMessage {
 					postSlackMessage(sc, "C01UHA03VEY", message)
