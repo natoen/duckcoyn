@@ -68,21 +68,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			if !isAHigher1mKlineOpenExists && isGreen && isTodayVolMorethan100k {
 				isPostMessage := false
 
-				if !isLastVolRateExists && isTodayVolRate2x {
-					lastVolRateMap.Store(pair, volRateExpireTime{VolRate: volRate, ExpireTime: t.Add(30 * time.Minute)})
-					message = message + fmt.Sprintf(" %.2f", volRate)
-					isPostMessage = true
-				} else if isLastVolRateExists && (lastVolRate.(volRateExpireTime).VolRate+0.5) <= volRate {
-					expireTime := lastVolRate.(volRateExpireTime).ExpireTime
-
-					if t.After(lastVolRate.(volRateExpireTime).ExpireTime) {
-						expireTime = t.Add(30 * time.Minute)
-						message = message + fmt.Sprintf(" %.2f", volRate)
-						isPostMessage = true
-					}
-
-					lastVolRateMap.Store(pair, volRateExpireTime{VolRate: volRate, ExpireTime: expireTime})
-				} else if isSkipPair1m && (isMinuteSpike || isMinuteChangeUpBy4Percent || isSurgingMinutes) {
+				if isSkipPair1m && (isMinuteSpike || isMinuteChangeUpBy4Percent || isSurgingMinutes) {
 					skipPair1mMap.Store(pair, t)
 
 					if isMinuteChangeUpBy4Percent {
@@ -98,7 +84,20 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 					}
 
 					isPostMessage = true
-				}
+				} else if !isLastVolRateExists && isTodayVolRate2x {
+					lastVolRateMap.Store(pair, volRateExpireTime{VolRate: volRate, ExpireTime: t.Add(30 * time.Minute)})
+					message = message + fmt.Sprintf(" %.2f", volRate)
+					isPostMessage = true
+				} else if isLastVolRateExists && (lastVolRate.(volRateExpireTime).VolRate+0.5) <= volRate {
+					expireTime := lastVolRate.(volRateExpireTime).ExpireTime
+
+					if t.After(lastVolRate.(volRateExpireTime).ExpireTime) {
+						expireTime = t.Add(30 * time.Minute)
+						message = message + fmt.Sprintf(" %.2f", volRate)
+						isPostMessage = true
+					}
+
+					lastVolRateMap.Store(pair, volRateExpireTime{VolRate: volRate, ExpireTime: expireTime})
 
 				if isPostMessage {
 					postSlackMessage(sc, "C01UHA03VEY", message)
