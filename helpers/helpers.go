@@ -68,7 +68,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			if !isAHigher1mKlineOpenExists && isGreen && isTodayVolMorethan100k {
 				isPostMessage := false
 
-				if isSkipPair1m && (isMinuteSpike || isMinuteChangeUpBy4Percent || isSurgingMinutes) {
+				if !isSkipPair1m && (isMinuteSpike || isMinuteChangeUpBy4Percent || isSurgingMinutes) {
 					skipPair1mMap.Store(pair, t)
 
 					if isMinuteChangeUpBy4Percent {
