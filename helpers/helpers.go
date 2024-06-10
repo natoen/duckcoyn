@@ -316,7 +316,7 @@ func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64)
 			usdtVol, _ := strconv.ParseFloat(kline.QuoteAssetVolume, 64)
 			accumUsdtVol = accumUsdtVol + usdtVol
 
-			if isInterval {
+			if isInterval && (j <= lastIndex-v.Interval) {
 				open, _ := strconv.ParseFloat(kline.Open, 64)
 				close, _ := strconv.ParseFloat(k[j+v.Interval-1].Close, 64)
 				isGreen := close >= open
