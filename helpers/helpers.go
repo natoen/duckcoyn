@@ -101,11 +101,11 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 					}
 
 					if isMinuteSpike {
-						message = message + " 1M"
+						message = message + " 1SPIKE"
 					}
 
 					if isSurgingMinutes {
-						message = message + " " + isSurgingMinutesStr
+						message = message + isSurgingMinutesStr
 					}
 
 					postSlackMessage(sc, "C01UHA03VEY", message)
@@ -325,11 +325,11 @@ func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64)
 				isPercentOfYesterdayUsdtVol := accumUsdtVol/yesterdayUsdtVol >= v.Vol
 
 				if !isGreen {
-					return false, ""
+					break
 				}
 
 				if isChangeUp && isAccumUsdtVol40k && isPercentOfYesterdayUsdtVol {
-					return true, v.IntervalStr
+					return true, " " + v.IntervalStr
 				}
 			}
 		}
