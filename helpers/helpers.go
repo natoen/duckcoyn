@@ -307,18 +307,18 @@ func IsAHigher15mKlineOpenExists(lastIndex int, k []*binance.Kline, c float64) b
 func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64) (bool, string) {
 	latestKlineClose, _ := strconv.ParseFloat(k[lastIndex].Close, 64)
 
-	for i, v := range intenalVolumes {
+	for _, v := range intenalVolumes {
 		accumUsdtVol := 0.0
 
 		for j := lastIndex; j >= 0; j-- {
-			isInterval := i%v.Interval == 0
-			kline := k[i]
+			isInterval := j%v.Interval == 0
+			kline := k[j]
 			usdtVol, _ := strconv.ParseFloat(kline.QuoteAssetVolume, 64)
 			accumUsdtVol = accumUsdtVol + usdtVol
 
 			if isInterval {
 				open, _ := strconv.ParseFloat(kline.Open, 64)
-				close, _ := strconv.ParseFloat(k[i+v.Interval-1].Close, 64)
+				close, _ := strconv.ParseFloat(k[j+v.Interval-1].Close, 64)
 				isGreen := close >= open
 				isChangeUp := latestKlineClose/open >= v.Change
 				isAccumUsdtVol40k := accumUsdtVol >= 40000.0
