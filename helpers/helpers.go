@@ -22,39 +22,39 @@ type intervalVolume struct {
 }
 
 var intenalVolumes = []intervalVolume{{
-	Change:      1.0195, // 2%
+	Change:      1.0295,
 	Interval:    1,
-	Vol:         1.03,
+	Vol:         0.0595,
 	IntervalStr: "1m",
 }, {
 	Change:      1.0295,
 	Interval:    3,
-	Vol:         1.06,
+	Vol:         0.0595,
 	IntervalStr: "3m",
 }, {
 	Change:      1.0295,
 	Interval:    5,
-	Vol:         1.06,
+	Vol:         0.0595,
 	IntervalStr: "5m",
 }, {
-	Change:      1.0395,
+	Change:      1.0295,
 	Interval:    15,
-	Vol:         1.12,
+	Vol:         0.1195,
 	IntervalStr: "15m",
 }, {
-	Change:      1.0395,
+	Change:      1.0295,
 	Interval:    30,
-	Vol:         1.12,
+	Vol:         0.1195,
 	IntervalStr: "30m",
 }, {
-	Change:      1.0395,
+	Change:      1.0295,
 	Interval:    60,
-	Vol:         1.12,
+	Vol:         0.1195,
 	IntervalStr: "1H",
 }, {
-	Change:      1.0395,
+	Change:      1.0295,
 	Interval:    120,
-	Vol:         1.12,
+	Vol:         0.1995,
 	IntervalStr: "2H",
 }}
 
@@ -90,7 +90,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			isMinuteSpike := (isMinuteVolMorethan40k && isMinuteVol2p5PercentOfYesterdayVol && isMinuteChangeUpByPoint9Percent)
 			isSurgingMinutes, isSurgingMinutesStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol)
 
-			if !isAHigher1mKlineOpenExists && isGreen && isTodayVolMorethan100k && !isSkipPair1m && (isMinuteSpike || isMinuteChangeUpBy4Percent || isSurgingMinutes) {
+			if !isSkipPair1m && !isAHigher1mKlineOpenExists && isGreen && isTodayVolMorethan100k && (isMinuteSpike || isMinuteChangeUpBy4Percent || isSurgingMinutes) {
 				skipPair1mMap.Store(pair, t)
 				message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
