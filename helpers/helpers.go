@@ -27,32 +27,32 @@ var intenalVolumes = []intervalVolume{{
 	Vol:         1.03,
 	IntervalStr: "1m",
 }, {
-	Change:      1.0195,
+	Change:      1.0295,
 	Interval:    3,
 	Vol:         1.06,
 	IntervalStr: "3m",
 }, {
-	Change:      1.0195,
+	Change:      1.0295,
 	Interval:    5,
 	Vol:         1.06,
 	IntervalStr: "5m",
 }, {
-	Change:      1.0295, // 3%
+	Change:      1.0395,
 	Interval:    15,
 	Vol:         1.12,
 	IntervalStr: "15m",
 }, {
-	Change:      1.0295,
+	Change:      1.0395,
 	Interval:    30,
 	Vol:         1.12,
 	IntervalStr: "30m",
 }, {
-	Change:      1.0295,
+	Change:      1.0395,
 	Interval:    60,
 	Vol:         1.12,
 	IntervalStr: "1H",
 }, {
-	Change:      1.0295,
+	Change:      1.0395,
 	Interval:    120,
 	Vol:         1.12,
 	IntervalStr: "2H",
@@ -90,26 +90,23 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			isMinuteSpike := (isMinuteVolMorethan40k && isMinuteVol2p5PercentOfYesterdayVol && isMinuteChangeUpByPoint9Percent)
 			isSurgingMinutes, isSurgingMinutesStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol)
 
-			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
+			if !isAHigher1mKlineOpenExists && isGreen && isTodayVolMorethan100k && !isSkipPair1m && (isMinuteSpike || isMinuteChangeUpBy4Percent || isSurgingMinutes) {
+				skipPair1mMap.Store(pair, t)
+				message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
-			if !isAHigher1mKlineOpenExists && isGreen && isTodayVolMorethan100k {
-				if !isSkipPair1m && (isMinuteSpike || isMinuteChangeUpBy4Percent || isSurgingMinutes) {
-					skipPair1mMap.Store(pair, t)
-
-					if isMinuteChangeUpBy4Percent {
-						message = message + " 4%"
-					}
-
-					if isMinuteSpike {
-						message = message + " 1SPIKE"
-					}
-
-					if isSurgingMinutes {
-						message = message + isSurgingMinutesStr
-					}
-
-					postSlackMessage(sc, "C01UHA03VEY", message)
+				if isMinuteChangeUpBy4Percent {
+					message = message + " 4%"
 				}
+
+				if isMinuteSpike {
+					message = message + " 1SPIKE"
+				}
+
+				if isSurgingMinutes {
+					message = message + isSurgingMinutesStr
+				}
+
+				postSlackMessage(sc, "C01UHA03VEY", message)
 			}
 
 			defer wg.Done()
@@ -309,14 +306,16 @@ func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64)
 
 	for _, v := range intenalVolumes {
 		accumUsdtVol := 0.0
+		inc := 0
 
 		for j := lastIndex; j >= 0; j-- {
-			isInterval := j%v.Interval == 0
 			kline := k[j]
 			usdtVol, _ := strconv.ParseFloat(kline.QuoteAssetVolume, 64)
 			accumUsdtVol = accumUsdtVol + usdtVol
+			inc = inc + 1 // add 1 right away before checking if it is an interval
+			isInterval := inc%v.Interval == 0
 
-			if isInterval && (j <= lastIndex-v.Interval) {
+			if isInterval {
 				open, _ := strconv.ParseFloat(kline.Open, 64)
 				close, _ := strconv.ParseFloat(k[j+v.Interval-1].Close, 64)
 				isGreen := close >= open
