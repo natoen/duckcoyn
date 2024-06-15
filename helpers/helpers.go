@@ -21,6 +21,10 @@ type intervalVolume struct {
 	IntervalStr string
 }
 
+var intervalStr30m = "30m"
+var intervalStr1H = "1H"
+var intervalStr2H = "2H"
+
 var intenalVolumes = []intervalVolume{{
 	Change:      1.0295,
 	Interval:    1,
@@ -45,17 +49,17 @@ var intenalVolumes = []intervalVolume{{
 	Change:      1.0295,
 	Interval:    30,
 	Vol:         0.1195,
-	IntervalStr: "30m",
+	IntervalStr: intervalStr30m,
 }, {
 	Change:      1.0295,
 	Interval:    60,
 	Vol:         0.1195,
-	IntervalStr: "1H",
+	IntervalStr: intervalStr1H,
 }, {
 	Change:      1.0295,
 	Interval:    120,
 	Vol:         0.1995,
-	IntervalStr: "2H",
+	IntervalStr: intervalStr2H,
 }}
 
 func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Client, sc *slack.Client, t time.Time, lastVolRateMap *sync.Map, skipPair1mMap *sync.Map) {
@@ -88,7 +92,19 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			isMinuteChangeUpByPoint9Percent := minuteKlineClose/minuteKlineOpen >= 1.0085
 			isMinuteChangeUpBy4Percent := minuteKlineClose/minuteKlineOpen >= 1.04
 			isMinuteSpike := (isMinuteVolMorethan40k && isMinuteVol2p5PercentOfYesterdayVol && isMinuteChangeUpByPoint9Percent)
-			isSurgingMinutes, isSurgingMinutesStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol)
+			hour := t.Hour()
+
+			if hour < 9 {
+				hour = hour + 15
+			} else {
+				hour = hour - 9
+			}
+
+			dayMinutesRatio := float64(hour*60+t.Minute()+1) / 1440.0
+			volRate := todayKlineUsdtVol / (yesterdayUsdtVol * dayMinutesRatio)
+			isTodayVolRate2x := 1.99 <= volRate
+
+			isSurgingMinutes, isSurgingMinutesStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, isTodayVolRate2x)
 
 			if !isSkipPair1m && !isAHigher1mKlineOpenExists && isGreen && isTodayVolMorethan100k && (isMinuteSpike || isMinuteChangeUpBy4Percent || isSurgingMinutes) {
 				skipPair1mMap.Store(pair, t)
@@ -301,7 +317,7 @@ func IsAHigher15mKlineOpenExists(lastIndex int, k []*binance.Kline, c float64) b
 	return false
 }
 
-func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64) (bool, string) {
+func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64, is2xVolRate bool) (bool, string) {
 	latestKlineClose, _ := strconv.ParseFloat(k[lastIndex].Close, 64)
 
 	for _, v := range intenalVolumes {
@@ -324,6 +340,10 @@ func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64)
 				isPercentOfYesterdayUsdtVol := accumUsdtVol/yesterdayUsdtVol >= v.Vol
 
 				if !isGreen {
+					break
+				}
+
+				if (v.IntervalStr == intervalStr30m || v.IntervalStr == intervalStr1H || v.IntervalStr == intervalStr2H) && !is2xVolRate {
 					break
 				}
 
