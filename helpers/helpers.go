@@ -324,6 +324,10 @@ func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64,
 		accumUsdtVol := 0.0
 		inc := 0
 
+		if (v.IntervalStr == intervalStr30m || v.IntervalStr == intervalStr1H || v.IntervalStr == intervalStr2H) && !is2xVolRate {
+			break
+		}
+
 		for j := lastIndex; j >= 0; j-- {
 			kline := k[j]
 			usdtVol, _ := strconv.ParseFloat(kline.QuoteAssetVolume, 64)
@@ -335,17 +339,14 @@ func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64,
 				open, _ := strconv.ParseFloat(kline.Open, 64)
 				close, _ := strconv.ParseFloat(k[j+v.Interval-1].Close, 64)
 				isGreen := close >= open
-				isChangeUp := latestKlineClose/open >= v.Change
-				isAccumUsdtVol40k := accumUsdtVol >= 40000.0
-				isPercentOfYesterdayUsdtVol := accumUsdtVol/yesterdayUsdtVol >= v.Vol
 
 				if !isGreen {
 					break
 				}
 
-				if (v.IntervalStr == intervalStr30m || v.IntervalStr == intervalStr1H || v.IntervalStr == intervalStr2H) && !is2xVolRate {
-					break
-				}
+				isChangeUp := latestKlineClose/open >= v.Change
+				isAccumUsdtVol40k := accumUsdtVol >= 40000.0
+				isPercentOfYesterdayUsdtVol := accumUsdtVol/yesterdayUsdtVol >= v.Vol
 
 				if isChangeUp && isAccumUsdtVol40k && isPercentOfYesterdayUsdtVol {
 					return true, " " + v.IntervalStr
