@@ -21,30 +21,31 @@ type intervalVolume struct {
 	IntervalStr string
 }
 
+var intervalStr15m = "15m"
 var intervalStr30m = "30m"
 var intervalStr1H = "1H"
 var intervalStr2H = "2H"
 
-var intenalVolumes = []intervalVolume{{
+var intervalVolumes = []intervalVolume{{
 	Change:      1.0295,
 	Interval:    1,
-	Vol:         0.0595,
+	Vol:         0.0495,
 	IntervalStr: "1m",
 }, {
 	Change:      1.0295,
 	Interval:    3,
-	Vol:         0.0595,
+	Vol:         0.0495,
 	IntervalStr: "3m",
 }, {
 	Change:      1.0295,
 	Interval:    5,
-	Vol:         0.0595,
+	Vol:         0.0495,
 	IntervalStr: "5m",
 }, {
 	Change:      1.0295,
 	Interval:    15,
-	Vol:         0.1195,
-	IntervalStr: "15m",
+	Vol:         0.0995,
+	IntervalStr: intervalStr15m,
 }, {
 	Change:      1.0295,
 	Interval:    30,
@@ -102,27 +103,35 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 
 			dayMinutesRatio := float64(hour*60+t.Minute()+1) / 1440.0
 			volRate := todayKlineUsdtVol / (yesterdayUsdtVol * dayMinutesRatio)
-			isTodayVolRate2x := 1.99 <= volRate
+			isNxVolRate := 1.49 <= volRate
 
-			isSurgingMinutes, isSurgingMinutesStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, isTodayVolRate2x)
+			isSurgingMinutes5m, isSurgingMinutes5mStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, true, intervalVolumes[:3])
+			isSurgingMinutes2H, isSurgingMinutes2HStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, isNxVolRate, intervalVolumes[3:])
 
-			if !isSkipPair1m && !isAHigher1mKlineOpenExists && isGreen && isTodayVolMorethan100k && (isMinuteSpike || isMinuteChangeUpBy4Percent || isSurgingMinutes) {
-				skipPair1mMap.Store(pair, t)
+			if !isSkipPair1m && isTodayVolMorethan100k {
 				message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
-				if isMinuteChangeUpBy4Percent {
-					message = message + " 4%"
-				}
+				if !isAHigher1mKlineOpenExists && isGreen && (isMinuteSpike || isMinuteChangeUpBy4Percent || isSurgingMinutes5m) {
+					skipPair1mMap.Store(pair, t)
 
-				if isMinuteSpike {
-					message = message + " 1SPIKE"
-				}
+					if isMinuteChangeUpBy4Percent {
+						message = message + " 4%"
+					}
 
-				if isSurgingMinutes {
-					message = message + isSurgingMinutesStr
-				}
+					if isMinuteSpike {
+						message = message + " 1SPIKE"
+					}
 
-				postSlackMessage(sc, "C01UHA03VEY", message)
+					if isSurgingMinutes5m {
+						message = message + isSurgingMinutes5mStr
+					}
+
+					postSlackMessage(sc, "C01UHA03VEY", message)
+				} else if isSurgingMinutes2H {
+					skipPair1mMap.Store(pair, t)
+					message = message + isSurgingMinutes2HStr
+					postSlackMessage(sc, "C01UHA03VEY", message)
+				}
 			}
 
 			defer wg.Done()
@@ -317,16 +326,13 @@ func IsAHigher15mKlineOpenExists(lastIndex int, k []*binance.Kline, c float64) b
 	return false
 }
 
-func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64, is2xVolRate bool) (bool, string) {
+func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64, isNxVolRate bool, intervalVolumes []intervalVolume) (bool, string) {
 	latestKlineClose, _ := strconv.ParseFloat(k[lastIndex].Close, 64)
 
-	for _, v := range intenalVolumes {
+	for _, v := range intervalVolumes {
 		accumUsdtVol := 0.0
 		inc := 0
-
-		if (v.IntervalStr == intervalStr30m || v.IntervalStr == intervalStr1H || v.IntervalStr == intervalStr2H) && !is2xVolRate {
-			break
-		}
+		count := 0
 
 		for j := lastIndex; j >= 0; j-- {
 			kline := k[j]
@@ -342,13 +348,15 @@ func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64,
 
 				if !isGreen {
 					break
+				} else {
+					count = count + 1
 				}
 
 				isChangeUp := latestKlineClose/open >= v.Change
 				isAccumUsdtVol40k := accumUsdtVol >= 40000.0
 				isPercentOfYesterdayUsdtVol := accumUsdtVol/yesterdayUsdtVol >= v.Vol
 
-				if isChangeUp && isAccumUsdtVol40k && isPercentOfYesterdayUsdtVol {
+				if isChangeUp && isAccumUsdtVol40k && isPercentOfYesterdayUsdtVol && (isNxVolRate || count >= 7) {
 					return true, " " + v.IntervalStr
 				}
 			}
