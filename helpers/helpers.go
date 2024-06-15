@@ -127,7 +127,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 					}
 
 					postSlackMessage(sc, "C01UHA03VEY", message)
-				} else if isSurgingMinutes2H {
+				} else if isSurgingMinutes2H && (((t.Minute() + 1) % 15) == 0) {
 					skipPair1mMap.Store(pair, t)
 					message = message + isSurgingMinutes2HStr
 					postSlackMessage(sc, "C01UHA03VEY", message)
@@ -354,7 +354,7 @@ func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64,
 
 				isChangeUp := latestKlineClose/open >= v.Change
 				isAccumUsdtVol40k := accumUsdtVol >= 40000.0
-				isPercentOfYesterdayUsdtVol := accumUsdtVol/yesterdayUsdtVol >= v.Vol
+				isPercentOfYesterdayUsdtVol := (accumUsdtVol / yesterdayUsdtVol) >= v.Vol
 
 				if isChangeUp && isAccumUsdtVol40k && isPercentOfYesterdayUsdtVol && (isNxVolRate || count >= 7) {
 					return true, " " + v.IntervalStr
