@@ -340,7 +340,7 @@ func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64,
 
 	for _, v := range intervalVolumes {
 
-		if (v.IntervalStr == intervalStr30m && (t.Minute()+1)%30 == 0) || (v.IntervalStr == intervalStr1H && (t.Minute()+1)%60 == 0) || (v.IntervalStr == intervalStr2H && t.Hour()%2 == 1) {
+		if (v.IntervalStr == intervalStr30m && (t.Minute()+1)%30 != 0) || (v.IntervalStr == intervalStr1H && (t.Minute()+1)%60 != 0) || (v.IntervalStr == intervalStr2H && t.Hour()%2 == 0) {
 			continue
 		}
 
