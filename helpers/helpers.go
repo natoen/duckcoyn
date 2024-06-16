@@ -105,8 +105,8 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			volRate := todayKlineUsdtVol / (yesterdayUsdtVol * dayMinutesRatio)
 			isNxVolRate := 1.49 <= volRate
 
-			isSurgingMinutes5m, isSurgingMinutes5mStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, true, intervalVolumes[:3])
-			isSurgingMinutes2H, isSurgingMinutes2HStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, isNxVolRate, intervalVolumes[3:])
+			isSurgingMinutes5m, isSurgingMinutes5mStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, true, intervalVolumes[:3], t)
+			isSurgingMinutes2H, isSurgingMinutes2HStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, isNxVolRate, intervalVolumes[3:], t)
 
 			if !isSkipPair1m && isTodayVolMorethan100k {
 				message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
@@ -208,6 +208,15 @@ func GetUsdtPairs(bc *binance.Client) []string {
 		"XMRUSDT":   true,
 		"AEURUSDT":  true,
 		"FDUSD":     true,
+		"XEMUSDT":   true,
+		"COCOSUSDT": true,
+		"BTTUSDT":   true,
+		"STORMUSDT": true,
+		"MITHUSDT":  true,
+		"BZRXUSDT":  true,
+		"NANOUSDT":  true,
+		"PNTUSDT":   true,
+		"DNTUSDT":   true,
 	}
 
 	var symbols []string
@@ -326,10 +335,15 @@ func IsAHigher15mKlineOpenExists(lastIndex int, k []*binance.Kline, c float64) b
 	return false
 }
 
-func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64, isNxVolRate bool, intervalVolumes []intervalVolume) (bool, string) {
+func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64, isNxVolRate bool, intervalVolumes []intervalVolume, t time.Time) (bool, string) {
 	latestKlineClose, _ := strconv.ParseFloat(k[lastIndex].Close, 64)
 
 	for _, v := range intervalVolumes {
+
+		if (v.IntervalStr == intervalStr30m && (t.Minute()+1)%30 != 0) || (v.IntervalStr == intervalStr1H && (t.Minute()+1)%60 != 0) || (v.IntervalStr == intervalStr2H && t.Hour()%2 == 0) {
+			continue
+		}
+
 		accumUsdtVol := 0.0
 		inc := 0
 		count := 0
