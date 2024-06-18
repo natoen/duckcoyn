@@ -369,9 +369,16 @@ func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64,
 				isChangeUp := latestKlineClose/open >= v.Change
 				isAccumUsdtVol40k := accumUsdtVol >= 40000.0
 				isPercentOfYesterdayUsdtVol := (accumUsdtVol / yesterdayUsdtVol) >= v.Vol
+				is7Count := count >= 7
 
-				if isChangeUp && isAccumUsdtVol40k && isPercentOfYesterdayUsdtVol && (isNxVolRate || count >= 7) {
-					return true, " " + v.IntervalStr
+				if isChangeUp && isAccumUsdtVol40k && isPercentOfYesterdayUsdtVol && (isNxVolRate || is7Count) {
+					msg := " " + v.IntervalStr
+
+					if is7Count {
+						msg = msg + " 7"
+					}
+
+					return true, msg
 				}
 			}
 		}
