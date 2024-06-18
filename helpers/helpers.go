@@ -21,6 +21,8 @@ type intervalVolume struct {
 	IntervalStr string
 }
 
+var surgingMessage = ""
+
 var intervalStr15m = "15m"
 var intervalStr30m = "30m"
 var intervalStr1H = "1H"
@@ -126,11 +128,10 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 						message = message + isSurgingMinutes5mStr
 					}
 
-					postSlackMessage(sc, "C01UHA03VEY", message)
+					surgingMessage = message + "\n"
 				} else if isSurgingMinutes2H && (((t.Minute() + 1) % 15) == 0) {
 					skipPair1mMap.Store(pair, t)
-					message = message + isSurgingMinutes2HStr
-					postSlackMessage(sc, "C01UHA03VEY", message)
+					surgingMessage = message + isSurgingMinutes2HStr + "\n"
 				}
 			}
 
@@ -139,6 +140,8 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 	}
 
 	wg.Wait()
+	postSlackMessage(sc, "C01UHA03VEY", surgingMessage)
+	surgingMessage = ""
 }
 
 func GetKlines(bc *binance.Client, s string, i string, l int, et int64) []*binance.Kline {
@@ -217,6 +220,7 @@ func GetUsdtPairs(bc *binance.Client) []string {
 		"NANOUSDT":  true,
 		"PNTUSDT":   true,
 		"DNTUSDT":   true,
+		"WAVESUSDT": true,
 	}
 
 	var symbols []string
