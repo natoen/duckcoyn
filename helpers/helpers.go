@@ -221,6 +221,9 @@ func GetUsdtPairs(bc *binance.Client) []string {
 		"PNTUSDT":   true,
 		"DNTUSDT":   true,
 		"WAVESUSDT": true,
+		"AGIXUSDT":  true,
+		"OCEANUSDT": true,
+		"FETUSDT":   true,
 	}
 
 	var symbols []string
