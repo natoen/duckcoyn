@@ -140,8 +140,11 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 	}
 
 	wg.Wait()
-	postSlackMessage(sc, "C01UHA03VEY", surgingMessage)
-	surgingMessage = ""
+
+	if surgingMessage != "" {
+		postSlackMessage(sc, "C01UHA03VEY", surgingMessage)
+		surgingMessage = ""
+	}
 }
 
 func GetKlines(bc *binance.Client, s string, i string, l int, et int64) []*binance.Kline {
