@@ -88,7 +88,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			todayVolRatio := todayKlineUsdtVol / yesterdayUsdtVol
 			coinName := pair[0 : len(pair)-4]
 			isGreen := minuteKlineOpen <= minuteKlineClose
-			isAHigher1mKlineOpenExists := IsAHigher1mKlineOpenExists(indexOfLastMinuteKline, minuteKlines, minuteKlineClose)
+			isAHigher1mKlineOpenExists := IsAHigher1mKlineOpenExistsBefore2Hours(indexOfLastMinuteKline, minuteKlines, minuteKlineClose)
 			isTodayVolMorethan100k := todayKlineUsdtVol >= 100000.0
 			isMinuteVolMorethan40k := minuteKlineUsdtVol >= 40000.0
 			isMinuteVol2p5PercentOfYesterdayVol := minuteKlineUsdtVol/yesterdayUsdtVol >= 0.025
@@ -109,11 +109,12 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 
 			isSurgingMinutes5m, isSurgingMinutes5mStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, true, intervalVolumes[:3], t)
 			isSurgingMinutes2H, isSurgingMinutes2HStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, isNxVolRate, intervalVolumes[3:], t)
+			isQuarterMinute := (((t.Minute() + 1) % 15) == 0)
 
 			if !isSkipPair1m && isTodayVolMorethan100k {
 				message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
-				if !isAHigher1mKlineOpenExists && isGreen && (isMinuteSpike || isMinuteChangeUpBy4Percent || isSurgingMinutes5m) {
+				if !isAHigher1mKlineOpenExists && isGreen && (isMinuteSpike || isMinuteChangeUpBy4Percent || isSurgingMinutes5m || (isQuarterMinute && isSurgingMinutes2H)) {
 					skipPair1mMap.Store(pair, t)
 
 					if isMinuteChangeUpBy4Percent {
@@ -128,10 +129,11 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 						message = message + isSurgingMinutes5mStr
 					}
 
+					if isQuarterMinute && isSurgingMinutes2H {
+						message = message + isSurgingMinutes2HStr
+					}
+
 					surgingMsg = surgingMsg + message + "\n"
-				} else if isSurgingMinutes2H && (((t.Minute() + 1) % 15) == 0) {
-					skipPair1mMap.Store(pair, t)
-					surgingMsg = surgingMsg + message + isSurgingMinutes2HStr + "\n"
 				}
 			}
 
@@ -300,14 +302,12 @@ func numShortener(n float64) string {
 	return fmt.Sprintf("%.3f%s", n/divisor, suffix)
 }
 
-func IsAHigher1mKlineOpenExists(lastIndex int, k []*binance.Kline, c float64) bool {
-	for i := 0; i < lastIndex; i++ {
-		currentKlineOpen, err := strconv.ParseFloat(k[i].Open, 64)
+func IsAHigher1mKlineOpenExistsBefore2Hours(lastIndex int, k []*binance.Kline, c float64) bool {
+	minsIn2Hours := 120
 
-		if err != nil {
-			fmt.Println("ParseFloat currentKlineOpen error:", k[i], err)
-			return true
-		}
+	for i := 0; i < lastIndex-minsIn2Hours; i++ {
+		kline := k[i]
+		currentKlineOpen, _ := strconv.ParseFloat(kline.Open, 64)
 
 		if currentKlineOpen > c {
 			return true
