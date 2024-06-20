@@ -21,8 +21,6 @@ type intervalVolume struct {
 	IntervalStr string
 }
 
-var surgingMessage = ""
-
 var intervalStr15m = "15m"
 var intervalStr30m = "30m"
 var intervalStr1H = "1H"
@@ -66,6 +64,8 @@ var intervalVolumes = []intervalVolume{{
 }}
 
 func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Client, sc *slack.Client, t time.Time, lastVolRateMap *sync.Map, skipPair1mMap *sync.Map) {
+	surgingMsg := ""
+
 	for pair := range yesterdayUsdtPairs {
 		_, isSkipPair1m := skipPair1mMap.Load(pair)
 
@@ -128,10 +128,10 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 						message = message + isSurgingMinutes5mStr
 					}
 
-					surgingMessage = message + "\n"
+					surgingMsg = surgingMsg + message + "\n"
 				} else if isSurgingMinutes2H && (((t.Minute() + 1) % 15) == 0) {
 					skipPair1mMap.Store(pair, t)
-					surgingMessage = message + isSurgingMinutes2HStr + "\n"
+					surgingMsg = surgingMsg + message + isSurgingMinutes2HStr + "\n"
 				}
 			}
 
@@ -141,9 +141,8 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 
 	wg.Wait()
 
-	if surgingMessage != "" {
-		postSlackMessage(sc, "C01UHA03VEY", surgingMessage)
-		surgingMessage = ""
+	if surgingMsg != "" {
+		postSlackMessage(sc, "C01UHA03VEY", surgingMsg)
 	}
 }
 
