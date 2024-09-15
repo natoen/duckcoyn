@@ -92,7 +92,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			coinName := pair[0 : len(pair)-4]
 			isGreen := minuteKlineOpen <= minuteKlineClose
 			isTodayVolMorethan100k := todayKlineUsdtVol >= 100000.0
-			isMinuteVol2p5PercentOfYesterdayVol := (minuteKlineUsdtVol/yesterdayUsdtVol >= 0.025) && (todayKlineUsdtVol >= 40000.0)
+			isMinuteVol2p5PercentOfYesterdayVol := (minuteKlineUsdtVol/yesterdayUsdtVol >= 0.025) && (minuteKlineUsdtVol >= 40000.0)
 			isMinuteChangeUpBy4Percent := minuteKlineClose/minuteKlineOpen >= 1.04
 
 			// dayMinutesRatio := float64(hour*60+t.Minute()+1) / 1440.0
