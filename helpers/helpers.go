@@ -92,7 +92,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			coinName := pair[0 : len(pair)-4]
 			isGreen := minuteKlineOpen <= minuteKlineClose
 			isTodayVolMorethan100k := todayKlineUsdtVol >= 100000.0
-			isMinuteVol2p5PercentOfYesterdayVol := minuteKlineUsdtVol/yesterdayUsdtVol >= 0.025
+			isMinuteVol2p5PercentOfYesterdayVol := minuteKlineUsdtVol/yesterdayUsdtVol >= 0.025 && todayKlineUsdtVol >= 40000.0
 			isMinuteChangeUpBy4Percent := minuteKlineClose/minuteKlineOpen >= 1.04
 
 			// dayMinutesRatio := float64(hour*60+t.Minute()+1) / 1440.0
@@ -108,7 +108,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 					skipPair1mMap.Store(pair, t)
 
 					if isMinuteVol2p5PercentOfYesterdayVol {
-						message = message + " 1SPIKE"
+						message = message + " 2.5%YV"
 					}
 
 					if isMinuteChangeUpBy4Percent {
@@ -215,6 +215,9 @@ func GetUsdtPairs(bc *binance.Client) []string {
 		"OCEANUSDT": true,
 		"FETUSDT":   true,
 		"MULTIUSDT": true,
+		"FRONTUSDT": true,
+		"VGXUSDT":   true,
+		"EPXUSDT":   true,
 	}
 
 	var symbols []string
