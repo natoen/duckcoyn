@@ -91,20 +91,9 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			todayVolRatio := todayKlineUsdtVol / yesterdayUsdtVol
 			coinName := pair[0 : len(pair)-4]
 			isGreen := minuteKlineOpen <= minuteKlineClose
-			isAHigher1mKlineOpenExists := IsAHigher1mKlineOpenExistsBefore2Hours(indexOfLastMinuteKline, minuteKlines, minuteKlineClose)
 			isTodayVolMorethan100k := todayKlineUsdtVol >= 100000.0
-			isMinuteVolMorethan40k := minuteKlineUsdtVol >= 40000.0
 			isMinuteVol2p5PercentOfYesterdayVol := minuteKlineUsdtVol/yesterdayUsdtVol >= 0.025
-			isMinuteChangeUpByPoint9Percent := minuteKlineClose/minuteKlineOpen >= 1.0085
 			isMinuteChangeUpBy4Percent := minuteKlineClose/minuteKlineOpen >= 1.04
-			isMinuteSpike := (isMinuteVolMorethan40k && isMinuteVol2p5PercentOfYesterdayVol && isMinuteChangeUpByPoint9Percent)
-			hour := t.Hour()
-
-			if hour < 9 {
-				hour = hour + 15
-			} else {
-				hour = hour - 9
-			}
 
 			// dayMinutesRatio := float64(hour*60+t.Minute()+1) / 1440.0
 			// volRate := todayKlineUsdtVol / (yesterdayUsdtVol * dayMinutesRatio)
@@ -115,15 +104,15 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			if !isSkipPair1m && isTodayVolMorethan100k {
 				message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
-				if (!isAHigher1mKlineOpenExists && isGreen && (isMinuteSpike || isMinuteChangeUpBy4Percent)) || isSurgingMinutes {
+				if isGreen && (isMinuteVol2p5PercentOfYesterdayVol || isMinuteChangeUpBy4Percent) /* || isSurgingMinutes */ {
 					skipPair1mMap.Store(pair, t)
+
+					if isMinuteVol2p5PercentOfYesterdayVol {
+						message = message + " 1SPIKE"
+					}
 
 					if isMinuteChangeUpBy4Percent {
 						message = message + " 4%"
-					}
-
-					if isMinuteSpike {
-						message = message + " 1SPIKE"
 					}
 
 					if isSurgingMinutes {
@@ -225,6 +214,7 @@ func GetUsdtPairs(bc *binance.Client) []string {
 		"AGIXUSDT":  true,
 		"OCEANUSDT": true,
 		"FETUSDT":   true,
+		"MULTIUSDT": true,
 	}
 
 	var symbols []string
