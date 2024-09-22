@@ -90,7 +90,8 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			yesterdayUsdtVol := yesterdayUsdtPairs[pair]
 			todayVolRatio := todayKlineUsdtVol / yesterdayUsdtVol
 			coinName := pair[0 : len(pair)-4]
-			isGreen := minuteKlineOpen <= minuteKlineClose
+			isMinuteGreen := minuteKlineOpen <= minuteKlineClose
+			isTodayGreen := todayKlineOpen <= todayKlineClose
 			isTodayVolMorethan100k := todayKlineUsdtVol >= 100000.0
 			isMinuteVol2p5PercentOfYesterdayVol := (minuteKlineUsdtVol/yesterdayUsdtVol >= 0.025) && (minuteKlineUsdtVol >= 40000.0)
 			isMinuteChangeUpBy4Percent := minuteKlineClose/minuteKlineOpen >= 1.04
@@ -104,7 +105,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			if !isSkipPair1m && isTodayVolMorethan100k {
 				message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
-				if isGreen && (isMinuteVol2p5PercentOfYesterdayVol || isMinuteChangeUpBy4Percent) /* || isSurgingMinutes */ {
+				if isMinuteGreen && isTodayGreen && (isMinuteVol2p5PercentOfYesterdayVol || isMinuteChangeUpBy4Percent || isSurgingMinutes) {
 					skipPair1mMap.Store(pair, t)
 
 					if isMinuteVol2p5PercentOfYesterdayVol {
