@@ -32,12 +32,12 @@ var intervalStr2H = "2H"
 var intervalVolumes = []intervalVolume{{
 	Change:      1.0295,
 	Interval:    1,
-	Vol:         0.0495,
+	Vol:         0.0395,
 	IntervalStr: intervalStr1m,
 }, {
 	Change:      1.0295,
 	Interval:    3,
-	Vol:         0.0745,
+	Vol:         0.0695,
 	IntervalStr: intervalStr3m,
 }, {
 	Change:      1.0295,
@@ -47,7 +47,7 @@ var intervalVolumes = []intervalVolume{{
 }, {
 	Change:      1.0295,
 	Interval:    15,
-	Vol:         0.1495,
+	Vol:         0.1395,
 	IntervalStr: intervalStr15m,
 }, {
 	Change:      1.0295,
