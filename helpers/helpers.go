@@ -30,37 +30,37 @@ var intervalStr1H = "1H"
 var intervalStr2H = "2H"
 
 var intervalVolumes = []intervalVolume{{
-	Change:      1.0295,
+	Change:      1.009,
 	Interval:    1,
 	Vol:         0.0395,
 	IntervalStr: intervalStr1m,
 }, {
-	Change:      1.0295,
+	Change:      1.009,
 	Interval:    3,
 	Vol:         0.0695,
 	IntervalStr: intervalStr3m,
 }, {
-	Change:      1.0295,
+	Change:      1.009,
 	Interval:    5,
 	Vol:         0.0995,
 	IntervalStr: intervalStr5m,
 }, {
-	Change:      1.0295,
+	Change:      1.009,
 	Interval:    15,
 	Vol:         0.1395,
 	IntervalStr: intervalStr15m,
 }, {
-	Change:      1.0295,
+	Change:      1.009,
 	Interval:    30,
 	Vol:         0.1995,
 	IntervalStr: intervalStr30m,
 }, {
-	Change:      1.0295,
+	Change:      1.009,
 	Interval:    60,
 	Vol:         0.2995,
 	IntervalStr: intervalStr1H,
 }, {
-	Change:      1.0295,
+	Change:      1.009,
 	Interval:    120,
 	Vol:         0.3995,
 	IntervalStr: intervalStr2H,
@@ -213,6 +213,7 @@ func GetUsdtPairs(bc *binance.Client) []string {
 		"FRONTUSDT": true,
 		"VGXUSDT":   true,
 		"EPXUSDT":   true,
+		"BONDUSDT":  true,
 	}
 
 	var symbols []string
