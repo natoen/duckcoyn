@@ -210,6 +210,9 @@ func GetUsdtPairs(bc *binance.Client) []string {
 		"VGXUSDT":   true,
 		"EPXUSDT":   true,
 		"BONDUSDT":  true,
+		"POLYUSDT":  true,
+		"RAMPUSDT":  true,
+		"MDXUSDT":   true,
 	}
 
 	var symbols []string
