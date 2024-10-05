@@ -80,6 +80,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			minuteKline := minuteKlines[indexOfLastMinuteKline]
 			minuteKlineClose, _ := strconv.ParseFloat(minuteKline.Close, 64)
 			minuteKlineOpen, _ := strconv.ParseFloat(minuteKline.Open, 64)
+			minuteKlineUsdtVol, _ := strconv.ParseFloat(minuteKline.QuoteAssetVolume, 64)
 
 			todayKline := GetKlines(bc, pair, "1d", 1, t.UnixMilli())[0]
 			todayKlineClose, _ := strconv.ParseFloat(todayKline.Close, 64)
@@ -88,10 +89,12 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			todayPriceRatio := todayKlineClose / todayKlineOpen
 			yesterdayUsdtVol := yesterdayUsdtPairs[pair]
 			todayVolRatio := todayKlineUsdtVol / yesterdayUsdtVol
+			isTodayVolRatio100Percent := 1 >= todayVolRatio
 			coinName := pair[0 : len(pair)-4]
 			isTodayGreen := todayKlineOpen <= todayKlineClose
 			isTodayVolMorethan100k := todayKlineUsdtVol >= 100000.0
 			isYVMorethan800k := yesterdayUsdtVol >= 800000.0
+			isMinuteKline20PercentYV := minuteKlineUsdtVol/yesterdayUsdtVol >= 0.2
 			isMinuteChangeUpBy4Percent := minuteKlineClose/minuteKlineOpen >= 1.04
 
 			isSurgingMinutes, isSurgingMinutesStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, intervalVolumes, t)
@@ -99,7 +102,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			if !isSkipPair1m && isTodayVolMorethan100k {
 				message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
-				if isTodayGreen && (isMinuteChangeUpBy4Percent || (isYVMorethan800k && isSurgingMinutes)) {
+				if isTodayGreen && (isMinuteChangeUpBy4Percent || ((isYVMorethan800k || isTodayVolRatio100Percent || isMinuteKline20PercentYV) && isSurgingMinutes)) {
 					skipPair1mMap.Store(pair, t)
 
 					if isMinuteChangeUpBy4Percent {
