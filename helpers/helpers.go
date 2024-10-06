@@ -94,15 +94,14 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			isTodayGreen := todayKlineOpen <= todayKlineClose
 			isTodayVolMorethan100k := todayKlineUsdtVol >= 100000.0
 			isYVMorethan800k := yesterdayUsdtVol >= 800000.0
-			isMinuteKline20PercentYV := minuteKlineUsdtVol/yesterdayUsdtVol >= 0.2
 			isMinuteChangeUpBy4Percent := minuteKlineClose/minuteKlineOpen >= 1.04
 
-			isSurgingMinutes, isSurgingMinutesStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, intervalVolumes, t)
+			isSurgingMinutes, isSurgingMinutesStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, intervalVolumes, t, isYVMorethan800k, isTodayVolRatio100Percent)
 
 			if !isSkipPair1m && isTodayVolMorethan100k {
 				message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
-				if isTodayGreen && (isMinuteChangeUpBy4Percent || ((isYVMorethan800k || isTodayVolRatio100Percent || isMinuteKline20PercentYV) && isSurgingMinutes)) {
+				if isTodayGreen && (isMinuteChangeUpBy4Percent || isSurgingMinutes) {
 					skipPair1mMap.Store(pair, t)
 
 					if isMinuteChangeUpBy4Percent {
@@ -332,7 +331,7 @@ func IsAHigher15mKlineOpenExists(lastIndex int, k []*binance.Kline, c float64) b
 	return false
 }
 
-func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64, intervalVolumes []intervalVolume, t time.Time) (bool, string) {
+func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64, intervalVolumes []intervalVolume, t time.Time, isYVMorethan800k bool, isTodayVolRatio100Percent bool) (bool, string) {
 	latestKlineClose, _ := strconv.ParseFloat(k[lastIndex].Close, 64)
 
 	for _, v := range intervalVolumes {
@@ -365,7 +364,7 @@ func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64,
 
 				isChangeUp := latestKlineClose/open >= v.Change
 				isAccumUsdtVol40k := accumUsdtVol >= 40000.0
-				isPercentOfYesterdayUsdtVol := (accumUsdtVol / yesterdayUsdtVol) >= v.Vol
+				isPercentOfYesterdayUsdtVol := ((isYVMorethan800k || isTodayVolRatio100Percent) && ((accumUsdtVol / yesterdayUsdtVol) >= v.Vol)) || ((accumUsdtVol / yesterdayUsdtVol) >= v.Vol*2)
 
 				if isChangeUp && isAccumUsdtVol40k && isPercentOfYesterdayUsdtVol {
 					return true, " " + v.IntervalStr
