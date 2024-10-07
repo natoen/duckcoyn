@@ -80,7 +80,6 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			minuteKline := minuteKlines[indexOfLastMinuteKline]
 			minuteKlineClose, _ := strconv.ParseFloat(minuteKline.Close, 64)
 			minuteKlineOpen, _ := strconv.ParseFloat(minuteKline.Open, 64)
-			minuteKlineUsdtVol, _ := strconv.ParseFloat(minuteKline.QuoteAssetVolume, 64)
 
 			todayKline := GetKlines(bc, pair, "1d", 1, t.UnixMilli())[0]
 			todayKlineClose, _ := strconv.ParseFloat(todayKline.Close, 64)
