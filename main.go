@@ -23,7 +23,7 @@ func main() {
 	pairs := helpers.GetUsdtPairs(bc)
 	yesterdayUsdtPairs := helpers.GetYesterdayUsdtPairs(bc, pairs)
 	skipPair1mMap := sync.Map{}
-	lastVolRateMap := sync.Map{}
+	skipPair1mMap2 := sync.Map{}
 
 	// run every minute
 	c.AddFunc("* * * * *", func() {
@@ -31,7 +31,7 @@ func main() {
 
 		if (t.Hour() == 9) && t.Minute() == 0 {
 			skipPair1mMap = sync.Map{}
-			lastVolRateMap = sync.Map{}
+			skipPair1mMap2 = sync.Map{}
 		}
 
 		if t.Hour() == 9 && t.Minute() == 0 {
@@ -39,7 +39,7 @@ func main() {
 			yesterdayUsdtPairs = helpers.GetYesterdayUsdtPairs(bc, pairs)
 		}
 
-		helpers.CheckForSpikingCoins(yesterdayUsdtPairs, bc, sc, t, &lastVolRateMap, &skipPair1mMap)
+		helpers.CheckForSpikingCoins(yesterdayUsdtPairs, bc, sc, t, &skipPair1mMap2, &skipPair1mMap)
 	})
 	c.Start()
 
