@@ -66,11 +66,12 @@ var intervalVolumes = []intervalVolume{{
 	IntervalStr: intervalStr2H,
 }}
 
-func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Client, sc *slack.Client, t time.Time, skipPair1mMap2 *sync.Map, skipPair1mMap *sync.Map) {
+func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Client, sc *slack.Client, t time.Time, skipPair1mMap2 *sync.Map, skipPair1mMap1 *sync.Map) {
 	surgingMsg := ""
+	alertMsg := ""
 
 	for pair := range yesterdayUsdtPairs {
-		_, isSkipPair1m := skipPair1mMap.Load(pair)
+		skipPair1mVal, isSkipPair1m1 := skipPair1mMap1.Load(pair)
 		_, isSkipPair1m2 := skipPair1mMap2.Load(pair)
 
 		wg.Add(1)
@@ -81,6 +82,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			minuteKline := minuteKlines[indexOfLastMinuteKline]
 			minuteKlineClose, _ := strconv.ParseFloat(minuteKline.Close, 64)
 			minuteKlineOpen, _ := strconv.ParseFloat(minuteKline.Open, 64)
+			minuteKlineUsdtVol, _ := strconv.ParseFloat(minuteKline.QuoteAssetVolume, 64)
 
 			todayKline := GetKlines(bc, pair, "1d", 1, t.UnixMilli())[0]
 			todayKlineClose, _ := strconv.ParseFloat(todayKline.Close, 64)
@@ -95,18 +97,23 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			isTodayVolMorethan100k := todayKlineUsdtVol >= 100000.0
 			isYVMorethan800k := yesterdayUsdtVol >= 800000.0
 			isMinuteChangeUpBy4Percent := minuteKlineClose/minuteKlineOpen >= 1.04
+			aveOf1MinVolOfYesterday := (yesterdayUsdtVol / 1440)
+			is1MinVol100x := minuteKlineUsdtVol/aveOf1MinVolOfYesterday >= 100
 
 			isSurgingMinutes, isSurgingMinutesStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, intervalVolumes, t, isYVMorethan800k, isTodayVolRatio100Percent)
 			isLast15MinStable := Last15MinChecker(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol)
 
 			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
-			if isTodayGreen && !isSkipPair1m2 {
-				if isSkipPair1m && isLast15MinStable {
-					surgingMsg = surgingMsg + message + " S" + "\n"
+			if !isSkipPair1m2 && isTodayGreen && isTodayVolMorethan100k {
+				if is1MinVol100x {
+					alertMsg = alertMsg + message + " 100X\n"
 					skipPair1mMap2.Store(pair, t)
-				} else if !isSkipPair1m && isTodayVolMorethan100k && (isMinuteChangeUpBy4Percent || isSurgingMinutes) {
-					skipPair1mMap.Store(pair, t)
+				} else if isSkipPair1m1 && isLast15MinStable {
+					surgingMsg = surgingMsg + message + " S " + skipPair1mVal.(time.Time).String()[11:16] + "\n"
+					skipPair1mMap2.Store(pair, t)
+				} else if !isSkipPair1m1 && (isMinuteChangeUpBy4Percent || isSurgingMinutes) {
+					skipPair1mMap1.Store(pair, t)
 
 					if isLast15MinStable {
 						if isMinuteChangeUpBy4Percent {
@@ -131,6 +138,10 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 
 	if surgingMsg != "" {
 		postSlackMessage(sc, "C01UHA03VEY", surgingMsg)
+	}
+
+	if alertMsg != "" {
+		postSlackMessage(sc, "C01V0V91NTS", alertMsg)
 	}
 }
 
