@@ -83,6 +83,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			minuteKlineClose, _ := strconv.ParseFloat(minuteKline.Close, 64)
 			minuteKlineOpen, _ := strconv.ParseFloat(minuteKline.Open, 64)
 			minuteKlineUsdtVol, _ := strconv.ParseFloat(minuteKline.QuoteAssetVolume, 64)
+			isMinuteGreen := minuteKlineOpen <= minuteKlineClose
 
 			todayKline := GetKlines(bc, pair, "1d", 1, t.UnixMilli())[0]
 			todayKlineClose, _ := strconv.ParseFloat(todayKline.Close, 64)
@@ -98,7 +99,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			isYVMorethan800k := yesterdayUsdtVol >= 800000.0
 			isMinuteChangeUpBy4Percent := minuteKlineClose/minuteKlineOpen >= 1.04
 			aveOf1MinVolOfYesterday := (yesterdayUsdtVol / 1440)
-			is1MinVol100x := minuteKlineUsdtVol/aveOf1MinVolOfYesterday >= 100
+			is1MinVol100x := minuteKlineUsdtVol/aveOf1MinVolOfYesterday >= 80
 
 			isSurgingMinutes, isSurgingMinutesStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, intervalVolumes, t, isYVMorethan800k, isTodayVolRatio100Percent)
 			isLast15MinStable := Last15MinChecker(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol)
@@ -106,7 +107,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
 			if !isSkipPair1m2 && isTodayGreen && isTodayVolMorethan100k {
-				if is1MinVol100x {
+				if is1MinVol100x && isMinuteGreen {
 					alertMsg = alertMsg + message + " 100X\n"
 					skipPair1mMap2.Store(pair, t)
 				} else if isSkipPair1m1 && isLast15MinStable {
