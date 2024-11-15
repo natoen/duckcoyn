@@ -99,7 +99,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			isYVMorethan800k := yesterdayUsdtVol >= 800000.0
 			// isMinuteChangeUpBy4Percent := Surging1Minutes4Percent(indexOfLastMinuteKline, minuteKlines)
 			aveOf1MinVolOfYesterday := (yesterdayUsdtVol / 1440)
-			is1MinVol100x := minuteKlineUsdtVol/aveOf1MinVolOfYesterday >= 80
+			is1MinVol100x := minuteKlineUsdtVol/aveOf1MinVolOfYesterday >= 80 && minuteKlineUsdtVol >= 80000
 
 			isSurgingMinutes, isSurgingMinutesStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, intervalVolumes, t, isYVMorethan800k, isTodayVolRatio100Percent)
 			isLast15MinStable := Last15MinChecker(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol)
