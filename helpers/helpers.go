@@ -99,7 +99,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			isYVMorethan800k := yesterdayUsdtVol >= 800000.0
 			isSurging1Minutes := Surging1Minutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, intervalVolumes, t)
 			aveOf1MinVolOfYesterday := (yesterdayUsdtVol / 1440)
-			is1MinVol100x := minuteKlineUsdtVol/aveOf1MinVolOfYesterday >= 80 && minuteKlineUsdtVol >= 80000
+			is1MinVol80x := minuteKlineUsdtVol/aveOf1MinVolOfYesterday >= 80 && minuteKlineUsdtVol >= 80000
 
 			isSurgingMinutes, isSurgingMinutesStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, intervalVolumes, t, isYVMorethan800k, isTodayVolRatio100Percent)
 			isLast15MinStable := Last15MinChecker(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol)
@@ -107,8 +107,8 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
 			if !isSkipPair1m2 && isTodayGreen && isTodayVolMorethan100k {
-				if (is1MinVol100x || isSurging1Minutes) && isMinuteGreen {
-					if is1MinVol100x {
+				if (is1MinVol80x || isSurging1Minutes) && isMinuteGreen {
+					if is1MinVol80x {
 						message = message + " 80X"
 					}
 
@@ -436,11 +436,11 @@ func Surging1Minutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64
 				}
 
 				changeUp := latestKlineClose / open
-				isChangeUp2Percent := changeUp >= 2
+				isChangeUp1Percent := changeUp >= 1.009
 				isAccumUsdtVol80k := accumUsdtVol >= 80000.0
-				isAccumUsdtVol100xYV := accumUsdtVol >= (yesterdayUsdtVol/1440)*100
+				isAccumUsdtVol80xYV := accumUsdtVol >= (yesterdayUsdtVol/1440)*80
 
-				if isChangeUp2Percent && isAccumUsdtVol80k && isAccumUsdtVol100xYV {
+				if isChangeUp1Percent && isAccumUsdtVol80k && isAccumUsdtVol80xYV {
 					isSurging = true
 				}
 			}
