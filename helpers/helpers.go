@@ -69,22 +69,22 @@ var intervalVolumes = []intervalVolume{{
 var bigIntervalVolumes = []intervalVolume{{
 	Change:      1.009,
 	Interval:    1,
-	Vol:         0.0895,
+	Vol:         0.0945,
 	IntervalStr: intervalStr1m,
 }, {
 	Change:      1.009,
 	Interval:    3,
-	Vol:         0.1395,
+	Vol:         0.1445,
 	IntervalStr: intervalStr3m,
 }, {
 	Change:      1.009,
 	Interval:    5,
-	Vol:         0.1895,
+	Vol:         0.1945,
 	IntervalStr: intervalStr5m,
 }, {
 	Change:      1.009,
 	Interval:    15,
-	Vol:         0.2895,
+	Vol:         0.2945,
 	IntervalStr: intervalStr15m,
 }}
 
@@ -463,7 +463,7 @@ func Surging1Minutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64
 
 				if isChangeUp1Percent && isAccumUsdtVol80k && isPercentOfYesterdayUsdtVol {
 					isSurging = true
-					surgingText = fmt.Sprintf(" %s %.2f%% %d bars", v.IntervalStr, (changeUp-1)*100, inc/v.Interval)
+					surgingText = fmt.Sprintf(" %dmins %.2f%% %d bars", v.Interval, (changeUp-1)*100, inc/v.Interval)
 				}
 			}
 		}
