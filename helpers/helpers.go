@@ -438,9 +438,9 @@ func Surging1Minutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64
 				changeUp := latestKlineClose / open
 				isChangeUp1Percent := changeUp >= 1.009
 				isAccumUsdtVol80k := accumUsdtVol >= 80000.0
-				isAccumUsdtVol80xYV := accumUsdtVol >= (yesterdayUsdtVol/1440)*80
+				isAccumUsdtVol100xYV := accumUsdtVol >= (yesterdayUsdtVol/1440)*100
 
-				if isChangeUp1Percent && isAccumUsdtVol80k && isAccumUsdtVol80xYV {
+				if isChangeUp1Percent && isAccumUsdtVol80k && isAccumUsdtVol100xYV {
 					isSurging = true
 				}
 			}
