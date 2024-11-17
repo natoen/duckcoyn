@@ -97,9 +97,9 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			isTodayGreen := todayKlineOpen <= todayKlineClose
 			isTodayVolMorethan100k := todayKlineUsdtVol >= 100000.0
 			isYVMorethan800k := yesterdayUsdtVol >= 800000.0
-			// isMinuteChangeUpBy4Percent := Surging1Minutes4Percent(indexOfLastMinuteKline, minuteKlines)
+			isSurging1Minutes := Surging1Minutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, intervalVolumes, t)
 			aveOf1MinVolOfYesterday := (yesterdayUsdtVol / 1440)
-			is1MinVol100x := minuteKlineUsdtVol/aveOf1MinVolOfYesterday >= 80
+			is1MinVol80x := minuteKlineUsdtVol/aveOf1MinVolOfYesterday >= 80 && minuteKlineUsdtVol >= 80000
 
 			isSurgingMinutes, isSurgingMinutesStr := SurgingMinutes(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol, intervalVolumes, t, isYVMorethan800k, isTodayVolRatio100Percent)
 			isLast15MinStable := Last15MinChecker(indexOfLastMinuteKline, minuteKlines, yesterdayUsdtVol)
@@ -107,14 +107,14 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
 			if !isSkipPair1m2 && isTodayGreen && isTodayVolMorethan100k {
-				if (is1MinVol100x /* || isMinuteChangeUpBy4Percent */) && isMinuteGreen {
-					if is1MinVol100x {
+				if (is1MinVol80x || isSurging1Minutes) && isMinuteGreen {
+					if is1MinVol80x {
 						message = message + " 80X"
 					}
 
-					// if isMinuteChangeUpBy4Percent {
-					// 	message = message + " 4%"
-					// }
+					if isSurging1Minutes {
+						message = message + " 1mins"
+					}
 
 					alertMsg = alertMsg + message + "\n"
 					skipPair1mMap2.Store(pair, t)
@@ -356,8 +356,13 @@ func IsAHigher15mKlineOpenExists(lastIndex int, k []*binance.Kline, c float64) b
 
 func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64, intervalVolumes []intervalVolume, t time.Time, isYVMorethan800k bool, isTodayVolRatio100Percent bool) (bool, string) {
 	latestKlineClose, _ := strconv.ParseFloat(k[lastIndex].Close, 64)
+	isSurging := false
+	surgingText := ""
 
 	for _, v := range intervalVolumes {
+		if isSurging {
+			break
+		}
 
 		if (v.IntervalStr == intervalStr3m && (t.Minute()+1)%3 != 0) || (v.IntervalStr == intervalStr5m && (t.Minute()+1)%5 != 0) || (v.IntervalStr == intervalStr15m && (t.Minute()+1)%15 != 0) || (v.IntervalStr == intervalStr30m && (t.Minute()+1)%30 != 0) || (v.IntervalStr == intervalStr1H && (t.Minute()+1)%60 != 0) || (v.IntervalStr == intervalStr2H && (t.Hour()%2 == 0 || t.Minute()+1 != 0)) {
 			continue
@@ -388,40 +393,61 @@ func SurgingMinutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64,
 				isPercentOfYesterdayUsdtVol := ((isYVMorethan800k || isTodayVolRatio100Percent) && ((accumUsdtVol / yesterdayUsdtVol) >= v.Vol)) || ((accumUsdtVol / yesterdayUsdtVol) >= v.Vol*2)
 
 				if isChangeUp && isAccumUsdtVol40k && isPercentOfYesterdayUsdtVol {
-					return true, fmt.Sprintf(" %s %.2f%% %d bars", v.IntervalStr, (changeUp-1)*100, inc)
+					isSurging = true
+					surgingText = fmt.Sprintf(" %s %.2f%% %d bars", v.IntervalStr, (changeUp-1)*100, inc)
 				}
 			}
 		}
 	}
 
-	return false, ""
+	return isSurging, surgingText
 }
 
-func Surging1Minutes4Percent(lastIndex int, k []*binance.Kline) bool {
+func Surging1Minutes(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64, intervalVolumes []intervalVolume, t time.Time) bool {
 	latestKlineClose, _ := strconv.ParseFloat(k[lastIndex].Close, 64)
-	accumUsdtVol := 0.0
+	isSurging := false
 
-	for j := lastIndex; j >= 0; j-- {
-		kline := k[j]
-		usdtVol, _ := strconv.ParseFloat(kline.QuoteAssetVolume, 64)
-		accumUsdtVol = accumUsdtVol + usdtVol
-		open, _ := strconv.ParseFloat(kline.Open, 64)
-		close, _ := strconv.ParseFloat(k[j].Close, 64)
-		isGreen := close >= open
-
-		if !isGreen {
+	for _, v := range intervalVolumes {
+		if isSurging || v.Interval == 15 {
 			break
 		}
 
-		isChange4PercentUp := latestKlineClose/open >= 1.039
-		isAccumUsdtVol400k := accumUsdtVol >= 400000.0
+		if (v.IntervalStr == intervalStr3m && (t.Minute()+1)%3 != 0) || (v.IntervalStr == intervalStr5m && (t.Minute()+1)%5 != 0) {
+			continue
+		}
 
-		if isChange4PercentUp && isAccumUsdtVol400k {
-			return true
+		accumUsdtVol := 0.0
+		inc := 0
+
+		for j := lastIndex; j >= 0; j-- {
+			kline := k[j]
+			usdtVol, _ := strconv.ParseFloat(kline.QuoteAssetVolume, 64)
+			accumUsdtVol = accumUsdtVol + usdtVol
+			inc = inc + 1 // add 1 right away before checking if it is an interval
+			isInterval := inc%v.Interval == 0
+
+			if isInterval {
+				open, _ := strconv.ParseFloat(kline.Open, 64)
+				close, _ := strconv.ParseFloat(k[j+v.Interval-1].Close, 64)
+				isGreen := close >= open
+
+				if !isGreen {
+					break
+				}
+
+				changeUp := latestKlineClose / open
+				isChangeUp1Percent := changeUp >= 1.009
+				isAccumUsdtVol80k := accumUsdtVol >= 80000.0
+				isAccumUsdtVol80xYV := accumUsdtVol >= (yesterdayUsdtVol/1440)*80
+
+				if isChangeUp1Percent && isAccumUsdtVol80k && isAccumUsdtVol80xYV {
+					isSurging = true
+				}
+			}
 		}
 	}
 
-	return false
+	return isSurging
 }
 
 func Last15MinChecker(lastIndex int, k []*binance.Kline, yesterdayUsdtVol float64) bool {
