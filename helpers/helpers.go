@@ -88,13 +88,14 @@ var bigIntervalVolumes = []intervalVolume{{
 	IntervalStr: intervalStr15m,
 }}
 
-func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Client, sc *slack.Client, t time.Time, skipPair1mMap2 *sync.Map, skipPair1mMap1 *sync.Map) {
+func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Client, sc *slack.Client, t time.Time, skipPair1mMap2 *sync.Map, skipPair1mMap1 *sync.Map, skipPair1mMap3 *sync.Map) {
 	surgingMsg := ""
 	alertMsg := ""
 
 	for pair := range yesterdayUsdtPairs {
 		skipPair1mVal, isSkipPair1m1 := skipPair1mMap1.Load(pair)
 		_, isSkipPair1m2 := skipPair1mMap2.Load(pair)
+		_, isSkipPair1m3 := skipPair1mMap3.Load(pair)
 
 		wg.Add(1)
 
@@ -140,8 +141,9 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 
 					alertMsg = alertMsg + message + "\n"
 					skipPair1mMap2.Store(pair, t)
-				} else if isSkipPair1m1 && isLast15MinStable {
+				} else if isSkipPair1m1 && isLast15MinStable && !isSkipPair1m3 {
 					surgingMsg = surgingMsg + message + " S " + skipPair1mVal.(string) + "\n"
+					skipPair1mMap3.Store(pair, t)
 				} else if !isSkipPair1m1 && isSurgingMinutes {
 					skipPair1mMap1.Store(pair, fmt.Sprintf("%s %s", isSurgingMinutesStr, t.String()[11:16]))
 
