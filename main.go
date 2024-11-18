@@ -32,6 +32,7 @@ func main() {
 		if (t.Hour() == 9) && t.Minute() == 0 {
 			skipPair1mMap = sync.Map{}
 			skipPair1mMap2 = sync.Map{}
+			skipPair1mMap3 = sync.Map{}
 		}
 
 		if t.Hour() == 9 && t.Minute() == 0 {
@@ -39,7 +40,7 @@ func main() {
 			yesterdayUsdtPairs = helpers.GetYesterdayUsdtPairs(bc, pairs)
 		}
 
-		helpers.CheckForSpikingCoins(yesterdayUsdtPairs, bc, sc, t, &skipPair1mMap2, &skipPair1mMap)
+		helpers.CheckForSpikingCoins(yesterdayUsdtPairs, bc, sc, t, &skipPair1mMap2, &skipPair1mMap, &skipPair1mMap3)
 	})
 	c.Start()
 
