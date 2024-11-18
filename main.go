@@ -24,6 +24,7 @@ func main() {
 	yesterdayUsdtPairs := helpers.GetYesterdayUsdtPairs(bc, pairs)
 	skipPair1mMap := sync.Map{}
 	skipPair1mMap2 := sync.Map{}
+	skipPair1mMap3 := sync.Map{}
 
 	// run every minute
 	c.AddFunc("* * * * *", func() {
