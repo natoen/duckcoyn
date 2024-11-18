@@ -130,7 +130,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 			message := fmt.Sprintf("<https://www.binance.com/en/trade/%s_USDT?type=spot|%s> %s %.2f%% %.2f%% %s", coinName, coinName, numShortener(yesterdayUsdtVol), todayVolRatio*100, (todayPriceRatio-1)*100, t.String()[11:16])
 
 			if !isSkipPair1m2 && isTodayGreen && isTodayVolMorethan100k {
-				if (is1MinVol80x || isSurging1Minutes) && isMinuteGreen {
+				if (is1MinVol80x && isMinuteGreen) || isSurging1Minutes {
 					if is1MinVol80x {
 						message = message + " 80X"
 					}
