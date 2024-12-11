@@ -150,6 +150,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 					if isLast15MinStable {
 						message = message + isSurgingMinutesStr
 						surgingMsg = surgingMsg + message + "\n"
+						skipPair1mMap3.Store(pair, t)
 					}
 				}
 			}
