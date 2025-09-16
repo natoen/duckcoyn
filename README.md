@@ -1,10 +1,9 @@
 # Crypto Coin Spike Alerter
 
-A Slack alerter written in Go whenever there is a spike in Binance. The criteria
-of a spike is self made. There was DB migrations, testings, and output files
-here before if you are looking at the commits but ultimately this became just a
-hobby to see if volume base anomaly will cause a spike. No. No profit was made
-during this hobby.
+A [Slack alerter](https://github.com/natoen/duckcoyn/blob/0f99beca52cf048d866319a40f089581e86455d2/helpers/helpers.go#L134) written in Go whenever there is a spike in Binance. The criteria
+of a spike is self made. If you are looking at the commits, there was DB migrations,
+testings, and output files here before but ultimately this became just a hobby to
+see if volume base anomaly will cause a spike. No profit was made during this hobby.
 
 ### How to run
 
