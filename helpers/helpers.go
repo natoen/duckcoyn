@@ -15,12 +15,13 @@ import (
 var wg sync.WaitGroup
 
 type intervalVolume struct {
-	Vol         float64
-	Interval    int
-	Change      float64
-	IntervalStr string
+	Vol         float64 // percentage volume change
+	Interval    int     // by minute
+	Change      float64 // change in price
+	IntervalStr string  // just a string for neat Slack message
 }
 
+// 　chart intervals
 var intervalStr1m = "1m"
 var intervalStr3m = "3m"
 var intervalStr5m = "5m"
@@ -88,6 +89,9 @@ var bigIntervalVolumes = []intervalVolume{{
 	IntervalStr: intervalStr15m,
 }}
 
+// This spike criteria had a lot of iterations. 1 current criterium here spikes
+// when the 1 minute volume is 80x of the whole yesterday's volume. We store it
+// inside our skip struct so we don't alert again for that coin within the day.
 func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Client, sc *slack.Client, t time.Time, skipPair1mMap2 *sync.Map, skipPair1mMap1 *sync.Map, skipPair1mMap3 *sync.Map) {
 	surgingMsg := ""
 	alertMsg := ""
@@ -170,6 +174,7 @@ func CheckForSpikingCoins(yesterdayUsdtPairs map[string]float64, bc *binance.Cli
 	}
 }
 
+// getting the klines from Binance
 func GetKlines(bc *binance.Client, s string, i string, l int, et int64) []*binance.Kline {
 	var klines []*binance.Kline
 	var err error
@@ -183,6 +188,7 @@ func GetKlines(bc *binance.Client, s string, i string, l int, et int64) []*binan
 			EndTime(et).
 			Do(context.Background())
 
+		// retry when Binance API gave you there usual error
 		if err != nil {
 			fmt.Println("GetKlines error:", s, err)
 			time.Sleep(5 * time.Second)
@@ -194,12 +200,14 @@ func GetKlines(bc *binance.Client, s string, i string, l int, et int64) []*binan
 	return klines
 }
 
+// get all the USDT pairs symbols
 func GetUsdtPairs(bc *binance.Client) []string {
 	// `prices` is an array of prices and symbols key-pair
 	var prices []*binance.SymbolPrice
 	var err error
 	isGetPairsNotSuccess := true
 
+	// retry when Binance API gave you there usual error
 	for isGetPairsNotSuccess {
 		prices, err = bc.NewListPricesService().Do(context.Background())
 
@@ -211,6 +219,7 @@ func GetUsdtPairs(bc *binance.Client) []string {
 		}
 	}
 
+	// harcoded pairs that we don't like
 	excludedSymbols := map[string]bool{
 		"BCHSVUSDT": true,
 		"TUSDUSDT":  true,
@@ -265,6 +274,7 @@ func GetUsdtPairs(bc *binance.Client) []string {
 
 	var symbols []string
 
+	// remove the DOWN, UP, BEAR, and BULL pairs
 	for _, p := range prices {
 		isDownToken := strings.Contains(p.Symbol, "DOWN")
 		isUpToken := strings.Contains(p.Symbol, "UP")
@@ -335,21 +345,6 @@ func numShortener(n float64) string {
 	return fmt.Sprintf("%.3f%s", n/divisor, suffix)
 }
 
-func IsAHigher1mKlineOpenExistsBefore2Hours(lastIndex int, k []*binance.Kline, c float64) bool {
-	minsIn2Hours := 120
-
-	for i := 0; i < lastIndex-minsIn2Hours; i++ {
-		kline := k[i]
-		currentKlineOpen, _ := strconv.ParseFloat(kline.Open, 64)
-
-		if currentKlineOpen > c {
-			return true
-		}
-	}
-
-	return false
-}
-
 func postSlackMessage(sc *slack.Client, channelId string, message string) {
 	channelId, timestamp, err := sc.PostMessage(
 		channelId,
@@ -361,6 +356,9 @@ func postSlackMessage(sc *slack.Client, channelId string, message string) {
 	}
 }
 
+// Below are checkers used for our criteria inside CheckForSpikingCoins method
+
+// we use these to check if there is a higher candle open
 func IsAHigher15mKlineOpenExists(lastIndex int, k []*binance.Kline, c float64) bool {
 	for i := lastIndex; i >= 0; i-- {
 		is15thMin := i%15 == 0
@@ -371,6 +369,21 @@ func IsAHigher15mKlineOpenExists(lastIndex int, k []*binance.Kline, c float64) b
 			if currentKlineOpen > c {
 				return true
 			}
+		}
+	}
+
+	return false
+}
+
+func IsAHigher1mKlineOpenExistsBefore2Hours(lastIndex int, k []*binance.Kline, c float64) bool {
+	minsIn2Hours := 120
+
+	for i := 0; i < lastIndex-minsIn2Hours; i++ {
+		kline := k[i]
+		currentKlineOpen, _ := strconv.ParseFloat(kline.Open, 64)
+
+		if currentKlineOpen > c {
+			return true
 		}
 	}
 

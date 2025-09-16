@@ -12,6 +12,7 @@ import (
 
 func main() {
 	var (
+		// These are all disabled. Add your own keys here.
 		binanceApiKey    = "SjtKWLrEyswIwTvbGj4bpUAYLP4LjdZb02aMBcI0xOzMzbOsN17SVUbYH0b9rhMA"
 		binanceSecretKey = "13JtnIW1pYLlRm3fWAVY3p6CzCQiwVTgEPZpccQwokClvEVd9VlIbEaiclLTm5H9"
 		slackToken       = "xoxb-1953607810134-2082368693729-5ORkYiqyztdZsQAvijlMquRE"
@@ -22,6 +23,9 @@ func main() {
 	c := cron.New()
 	pairs := helpers.GetUsdtPairs(bc)
 	yesterdayUsdtPairs := helpers.GetYesterdayUsdtPairs(bc, pairs)
+
+	// We store pairs here that we want to skip. 1m means 1 minute. These 3 have
+	// different purpose of skipping. They could have better naming.
 	skipPair1mMap := sync.Map{}
 	skipPair1mMap2 := sync.Map{}
 	skipPair1mMap3 := sync.Map{}
@@ -30,13 +34,11 @@ func main() {
 	c.AddFunc("* * * * *", func() {
 		t := time.Now().Add(-1 * time.Minute)
 
+		// reset by 9:00 as that is the start of a new day in crypto
 		if (t.Hour() == 9) && t.Minute() == 0 {
 			skipPair1mMap = sync.Map{}
 			skipPair1mMap2 = sync.Map{}
 			skipPair1mMap3 = sync.Map{}
-		}
-
-		if t.Hour() == 9 && t.Minute() == 0 {
 			pairs = helpers.GetUsdtPairs(bc)
 			yesterdayUsdtPairs = helpers.GetYesterdayUsdtPairs(bc, pairs)
 		}
@@ -45,6 +47,6 @@ func main() {
 	})
 	c.Start()
 
-	// make the program sleep for 1 year (8760 hours)
+	// run in the background; make the program sleep for 1 year (8760 hours)
 	time.Sleep(24 * 365 * time.Hour)
 }
